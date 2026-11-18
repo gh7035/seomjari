@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+apps/web/dist/
+
+# Env
+.env
+
+# Data (원본 CSV는 용량이 커서 제외, README의 다운로드 안내 참고)
+data/raw/*
+!data/raw/.gitkeep
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/

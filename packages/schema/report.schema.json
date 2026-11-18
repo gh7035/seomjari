@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SeomjariReport",
+  "type": "object",
+  "required": ["summary", "target", "signals", "score", "evidence", "limitations", "map"],
+  "properties": {
+    "summary": { "type": "string" },
+    "target": {
+      "type": "object",
+      "required": ["dong", "category"],
+      "properties": {
+        "dong": { "type": ["string", "null"] },
+        "category": { "type": ["string", "null"] }
+      }
+    },
+    "signals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "value", "level", "reason"],
+        "properties": {
+          "name": { "enum": ["관광 의존도", "계절 변동성", "경쟁 밀도", "수요 규모"] },
+          "value": { "type": "string" },
+          "level": { "enum": ["green", "yellow", "red"] },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "alternatives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["dong", "score", "why"],
+        "properties": {
+          "dong": { "type": "string" },
+          "score": { "type": "number" },
+          "why": { "type": "string" }
+        }
+      }
+    },
+    "trend": { "type": ["string", "null"] },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "period", "detail"],
+        "properties": {
+          "source": { "enum": ["D1", "D2", "D3", "D4"] },
+          "period": { "type": "string" },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "map": {
+      "type": "object",
+      "required": ["layer", "highlight"],
+      "properties": {
+        "layer": { "enum": ["demand", "tourism", "supply", "footfall"] },
+        "highlight": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

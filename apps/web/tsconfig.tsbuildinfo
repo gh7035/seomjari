@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/components/Chat.tsx","./src/components/DiagnoseForm.tsx","./src/components/Map3D.tsx","./src/components/ProgressSteps.tsx","./src/components/ReportCard.tsx"],"version":"5.9.3"}
