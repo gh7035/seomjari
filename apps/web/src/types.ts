@@ -28,6 +28,7 @@ export interface Report {
   evidence: Evidence[]
   limitations: string[]
   map: { layer: MapLayer; highlight: string[] }
+  focus?: 'gap'
   monthly_pattern?: MonthlyPattern
   mode?: ReportMode
 }

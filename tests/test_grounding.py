@@ -76,10 +76,8 @@ def test_s1_numbers_grounded():
     """리포트 텍스트의 모든 수치가 도구 tool 이벤트의 summary에 존재해야 한다."""
     evs = _run(S1)
     tool_summaries = " ".join(e["summary"] for e in evs if e["type"] == "tool")
-    # signals의 value도 grounding 원천임 (score_risk 산출)
     rep = next(e for e in evs if e["type"] == "report")["report"]
-    signal_values = " ".join(s["value"] for s in rep["signals"])
-    haystack = tool_summaries + " " + signal_values
+    haystack = tool_summaries
 
     text_in_report = " ".join(
         [rep["summary"]]
@@ -103,6 +101,30 @@ def test_s2_region_recommendation():
     rep = next(e for e in evs if e["type"] == "report")["report"]
     assert rep["target"]["dong"] is None
     assert len(rep["alternatives"]) >= 1  # Top 3 지역 제안
+
+
+def test_gap_category_for_place_question():
+    """지역만 묻고 업종을 추천해 달라면 빈틈 업종 리포트를 낸다."""
+    evs = _run({"category": None, "dong": None, "customer": "any", "ages": [],
+                "risk": "balanced", "question": "성산에 뭐 하면 좋을까"})
+    assert not [e for e in evs if e["type"] == "clarify"]
+    rep = next(e for e in evs if e["type"] == "report")["report"]
+    assert rep["focus"] == "gap"
+    assert rep["target"]["dong"] == "성산읍"
+    assert rep["target"]["category"] is None
+    assert rep["score"] is None
+    assert len(rep["alternatives"]) >= 1
+    assert rep["trend"]
+
+
+def test_age_changes_demand_reason():
+    evs = _run({"category": "카페", "dong": "애월읍", "customer": "any",
+                "ages": ["20대"], "risk": "safe"})
+    rep = next(e for e in evs if e["type"] == "report")["report"]
+    demand = next(s for s in rep["signals"] if s["name"] == "수요 규모")
+    assert "20대" in demand["reason"]
+    foot = next(s for s in rep["signals"] if s["name"] == "유동 수요")
+    assert "연령 미적용" in foot["reason"]
 
 
 def test_s4_ambiguous_category():

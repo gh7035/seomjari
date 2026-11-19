@@ -704,12 +704,64 @@ def compare_places(category: str, dongs: list[str] | None = None, top_k: int = 3
             "note": "종합 점수 내림차순 Top-K (신뢰도 낮은 항목은 score=null)"}
 
 
-def find_gap_category(dong: str) -> dict[str, Any]:
-    raise NotImplementedError
+def find_gap_category(dong: str, top_k: int = 5) -> dict[str, Any]:
+    """수요 백분위는 높고 점포 백분위는 낮은 업종. 카드 매출이 있는 업종만."""
+    demand = _base_slice(store.table("demand_monthly"))
+    supply = store.table("supply")
+    gaps: list[dict[str, Any]] = []
+    for cat in sorted(demand["app_category"].unique()):
+        cat_d = demand[demand["app_category"] == cat]
+        grouped = cat_d.groupby("dong")
+        monthly = grouped["이용금액_합계"].sum() / grouped["년월"].nunique()
+        if dong not in monthly.index:
+            continue
+        stores = supply[supply["app_category"] == cat].set_index("dong")["n_stores"]
+        store_series = stores.reindex(monthly.index).fillna(0)
+        n_stores = float(store_series.loc[dong])
+        demand_pct = signals_mod._percentile(float(monthly.loc[dong]), monthly)
+        supply_pct = signals_mod._percentile(n_stores, store_series)
+        gap = demand_pct - supply_pct
+        if gap <= 0:
+            continue
+        gaps.append({
+            "category": cat,
+            "gap": round(gap, 3),
+            "demand_rank": int((monthly > monthly.loc[dong]).sum() + 1),
+            "demand_n": int(len(monthly)),
+            "n_stores": int(n_stores),
+            "store_rank": int((store_series > n_stores).sum() + 1),
+            "store_n": int(len(store_series)),
+        })
+    gaps.sort(key=lambda r: -r["gap"])
+    return {"dong": dong, "available": bool(gaps), "gaps": gaps[:top_k],
+            "source": "D1+D4", "period": BASE_PERIOD, "as_of": _as_of("D4"),
+            "note": "수요 백분위 − 점포 백분위. 양수만 업종 후보"}
 
 
 def get_trend(category: str) -> dict[str, Any]:
-    raise NotImplementedError
+    """D3 업종 전체. 2018년 대비 최근 연도 이용금액 증감. 지역 점수에는 넣지 않는다."""
+    if not store.has_optional("trend_yearly"):
+        return {"category": category, "available": False, "source": "D3",
+                "period": "", "as_of": _as_of("D3"), "note": "D3 미빌드"}
+    tr = store.table("trend_yearly")
+    sub = tr[tr["app_category"] == category].sort_values("year")
+    if sub.empty:
+        return {"category": category, "available": False, "source": "D3",
+                "period": "", "as_of": _as_of("D3"), "note": "해당 업종 연도 자료 없음"}
+    latest = sub.iloc[-1]
+    year = int(latest["year"])
+    base_rows = sub[sub["year"] == 2018]
+    text = f"{category} 업종 전체 {year}년 자료가 있다. 제주 전체라 지역 점수는 바꾸지 않는다."
+    delta = None
+    if len(base_rows) and float(base_rows.iloc[0]["이용금액_합계"]) > 0:
+        base = float(base_rows.iloc[0]["이용금액_합계"])
+        delta = (float(latest["이용금액_합계"]) - base) / base
+        text = (f"{category} 업종 전체 이용금액은 2018년 대비 {year}년 {delta*100:+.1f}%."
+                " 제주 전체라 지역 점수는 바꾸지 않는다.")
+    return {"category": category, "available": True, "text": text, "year": year,
+            "delta": None if delta is None else round(delta, 4),
+            "source": "D3", "period": f"2018~{year}", "as_of": str(year),
+            "note": "지역 구분 없는 업종 합계"}
 
 
 def get_footfall(dong: str, ages: list[str] | None = None) -> dict[str, Any]:
@@ -720,18 +772,24 @@ def get_footfall(dong: str, ages: list[str] | None = None) -> dict[str, Any]:
     foot = store.table("footfall_monthly")
     if ages and "연령대" in foot.columns:
         foot = foot[foot["연령대"].isin(ages)]
-    sub = foot[foot["dong"] == dong]
-    if sub.empty:
+    means = foot.groupby("dong")["방문인구"].mean()
+    if dong not in means.index:
         return {"dong": dong, "available": False, "source": "D2",
                 "period": "", "as_of": _as_of("D2"),
                 "note": "해당 행정동 유동인구 없음"}
+    visit = float(means.loc[dong])
+    rank = int((means > visit).sum() + 1)
+    age_applied = bool(ages and "연령대" in foot.columns)
     return {"dong": dong, "available": True,
-            "방문인구_월평균": round(float(sub["방문인구"].mean())),
-            "거주인구_월평균": round(float(sub["거주인구"].mean())),
-            "근무인구_월평균": round(float(sub["근무인구"].mean())),
+            "방문인구_월평균": round(visit),
+            "거주인구_월평균": round(float(foot[foot["dong"] == dong]["거주인구"].mean())),
+            "근무인구_월평균": round(float(foot[foot["dong"] == dong]["근무인구"].mean())),
+            "rank": rank, "of": int(len(means)),
             "source": "D2", "period": "2017-01~2021-05",
             "as_of": _as_of("D2"),
-            "note": "D2 월평균 (연령 필터: " + (",".join(ages) if ages else "없음") + ")"}
+            "note": ("D2 월평균 · 연령 적용" if age_applied
+                     else "D2 월평균 · 연령 미적용" if ages
+                     else "D2 월평균 · 업종 무관")}
 
 
 def render_map(layer: str, category: str | None = None,

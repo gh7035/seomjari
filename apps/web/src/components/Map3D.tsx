@@ -15,12 +15,12 @@ const lighting = new LightingEffect({
 
 const VIEW = { longitude: 126.55, latitude: 33.38, zoom: 9.0, pitch: 50, bearing: -10 }
 
-const LAYERS: { key: MapLayer; label: string }[] = [
-  { key: 'demand', label: '수요' },
-  { key: 'tourism', label: '관광' },
-  { key: 'supply', label: '공급' },
-  { key: 'footfall', label: '유동' },
-  { key: 'survival', label: '생존' },
+const LAYERS: { key: MapLayer; label: string; hint: string }[] = [
+  { key: 'demand', label: '수요', hint: '기둥 높이는 2018–2019년 월평균 카드 매출입니다. 색은 관광객 비중이라 파랑은 도민형, 주황은 관광형입니다.' },
+  { key: 'tourism', label: '관광', hint: '관광객 매출이 전체에서 차지하는 비중입니다. 기둥이 높고 주황에 가까울수록 관광에 기대는 지역입니다.' },
+  { key: 'supply', label: '공급', hint: '선택한 업종의 점포 수입니다. 기둥이 높을수록 같은 업종 가게가 많습니다.' },
+  { key: 'footfall', label: '유동', hint: '방문인구 월평균입니다. 업종과 상관없이 사람이 많이 드나드는 지역을 보여 줍니다.' },
+  { key: 'survival', label: '생존', hint: '기둥 높이는 점포 수, 색은 3년 생존율입니다. 주황에 가까울수록 생존율이 낮습니다.' },
 ]
 
 // 관광 의존도 0(파랑, 도민형) → 1(주황, 관광형)
@@ -98,7 +98,7 @@ export default function Map3D({ layer: initialLayer, category, highlight, month,
       id: 'hallasan-label',
       data: [{ lon: 126.5325, lat: 33.3617, z: 1947 * 8 + 500 }],
       getPosition: (d: any) => [d.lon, d.lat, d.z],
-      getText: () => '한라산 1947m',
+      getText: () => '한라산 고도 1947m',
       getSize: 11,
       getColor: [220, 230, 240, 230],
       sizeUnits: 'pixels',
@@ -175,7 +175,11 @@ export default function Map3D({ layer: initialLayer, category, highlight, month,
               onClick={() => setLayer(l.key)}
               className={layer === l.key ? 'active' : ''}
               type="button"
-            >{l.label}</button>
+              aria-describedby={`layer-hint-${l.key}`}
+            >
+              {l.label}
+              <span className="layer-hint" role="tooltip" id={`layer-hint-${l.key}`}>{l.hint}</span>
+            </button>
           ))}
         </div>
         <div className="legend">

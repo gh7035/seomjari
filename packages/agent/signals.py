@@ -16,6 +16,7 @@ from . import store
 
 BASE_START = "2018-01"
 BASE_END = "2019-12"
+ANALYSIS_WINDOW = f"{BASE_START}~{BASE_END}"
 
 
 # ---------- SignalSpec ----------
@@ -81,6 +82,20 @@ def _level_from_pct(pct: float, direction: str) -> str:
     return "red"
 
 
+def _age_codes(labels: list[str]) -> set[str]:
+    """폼의 '20대'·'60대+'를 demand_age의 '20.0' 표기로 맞춘다."""
+    codes: set[str] = set()
+    for label in labels:
+        text = str(label)
+        if text.startswith("60"):
+            codes.update({"60.0", "70.0"})
+            continue
+        digits = "".join(ch for ch in text if ch.isdigit())
+        if digits:
+            codes.add(f"{int(digits)}.0")
+    return codes
+
+
 def _registry_as_of(id_: str) -> str:
     import json
     path = store.data_dir() / "registry.json"
@@ -128,7 +143,7 @@ def compute_tour(dong: str, category: str, spec: SignalSpec, _ctx: dict) -> dict
             "level": _level_from_pct(p, spec.direction),
             "percentile": round(p, 3),
             "reason": "관광개별+관광단체 비중",
-            "as_of": _registry_as_of("D1"), "spec": spec, "raw": v}
+            "as_of": ANALYSIS_WINDOW, "spec": spec, "raw": v}
 
 
 def compute_season(dong: str, category: str, spec: SignalSpec, _ctx: dict) -> dict:
@@ -146,23 +161,42 @@ def compute_season(dong: str, category: str, spec: SignalSpec, _ctx: dict) -> di
             "level": _level_from_pct(p, spec.direction),
             "percentile": round(p, 3),
             "reason": "최고월/최저월 매출 비율",
-            "as_of": _registry_as_of("D1"), "spec": spec, "raw": v}
+            "as_of": ANALYSIS_WINDOW, "spec": spec, "raw": v}
 
 
-def compute_demand(dong: str, category: str, spec: SignalSpec, _ctx: dict) -> dict:
+def _demand_from_series(dong: str, series: pd.Series, spec: SignalSpec, reason: str) -> dict:
+    v = float(series.loc[dong])
+    p = _percentile(v, series)
+    rank = int((series > v).sum() + 1)
+    return {"name": spec.name, "value": f"업종 내 {rank}위 / {len(series)}",
+            "level": _level_from_pct(p, spec.direction),
+            "percentile": round(p, 3),
+            "reason": reason,
+            "as_of": ANALYSIS_WINDOW, "spec": spec, "raw": v}
+
+
+def compute_demand(dong: str, category: str, spec: SignalSpec, ctx: dict) -> dict:
     cat = _demand_slice(category)
     if cat.empty or dong not in cat["dong"].unique():
         return _unavailable(spec, "D1에 해당 지역·업종 카드 데이터 없음")
     g = cat.groupby("dong")
     monthly_avg = g["이용금액_합계"].sum() / g["년월"].nunique()
-    v = float(monthly_avg.loc[dong])
-    p = _percentile(v, monthly_avg)
-    rank = int((monthly_avg > v).sum() + 1)
-    return {"name": spec.name, "value": f"업종 내 {rank}위 / {len(monthly_avg)}",
-            "level": _level_from_pct(p, spec.direction),
-            "percentile": round(p, 3),
-            "reason": "기준 기간 월평균 이용금액 동별 순위",
-            "as_of": _registry_as_of("D1"), "spec": spec, "raw": v}
+    ages = [str(a) for a in (ctx.get("ages") or [])]
+    if ages and store.has_optional("demand_age"):
+        age = store.table("demand_age")
+        codes = _age_codes(ages)
+        sub = age[(age["app_category"] == category) & (age["연령대"].astype(str).isin(codes))]
+        if sub.empty or dong not in set(sub["dong"]):
+            out = _demand_from_series(
+                dong, monthly_avg, spec, "기준 기간 월평균 이용금액 동별 순위")
+            out["reason"] += " · 선택 연령 데이터 없음, 전체 연령 사용"
+            return out
+        totals = sub.groupby("dong")["이용금액"].sum()
+        label = ", ".join(ages)
+        return _demand_from_series(
+            dong, totals, spec, f"선택 연령({label}) 이용금액 동별 순위")
+    return _demand_from_series(
+        dong, monthly_avg, spec, "기준 기간 월평균 이용금액 동별 순위")
 
 
 def compute_footfall(dong: str, _category: str, spec: SignalSpec, ctx: dict) -> dict:
@@ -179,9 +213,14 @@ def compute_footfall(dong: str, _category: str, spec: SignalSpec, ctx: dict) -> 
     v = float(g.loc[dong])
     p = _percentile(v, g)
     rank = int((g > v).sum() + 1)
-    age_note = f" (연령 {','.join(ages)})" if ages and "연령대" in foot.columns else ""
+    if ages and "연령대" in store.table("footfall_monthly").columns:
+        age_note = f" · 연령 {','.join(ages)}"
+    elif ages:
+        age_note = " · 연령 미적용"
+    else:
+        age_note = ""
     return {"name": spec.name,
-            "value": f"방문인구 월평균 {v:,.0f}명 (업종 무관, {rank}위/{len(g)})",
+            "value": f"{rank}위/{len(g)} (업종 무관 참고 {v:,.0f}명)",
             "level": _level_from_pct(p, spec.direction),
             "percentile": round(p, 3),
             "reason": f"D2 방문인구 월평균{age_note}",
@@ -193,28 +232,32 @@ def compute_comp(dong: str, category: str, spec: SignalSpec, _ctx: dict) -> dict
     sc = sup[sup["app_category"] == category].set_index("dong")["n_stores"]
     if dong not in sc.index or len(sc) == 0:
         return _unavailable(spec, "D4에 해당 지역·업종 점포 없음")
-    # 카드 매출이 있으면 '점포/억원', 없으면 점포수 자체 백분위
+    # 점포 스냅샷과 카드 매출 창이 다르면 점수는 점포수 백분위만 쓴다.
+    stores = float(sc.loc[dong])
+    p = _percentile(stores, sc)
+    rank = int((sc > stores).sum() + 1)
+    store_as_of = _registry_as_of("D4") or "2025-09"
+    reason = f"점수는 D4 {store_as_of} 점포수 백분위"
     cat = _demand_slice(category)
     if not cat.empty and dong in cat["dong"].unique():
         g = cat.groupby("dong")
         monthly_oku = (g["이용금액_합계"].sum() / g["년월"].nunique()) / 1e8
-        comp = sc.reindex(monthly_oku.index).fillna(0) / monthly_oku.replace(0, pd.NA)
-        if dong in comp.index and pd.notna(comp.loc[dong]):
-            v = float(comp.loc[dong])
-            p = _percentile(v, comp)
-            return {"name": spec.name, "value": f"{v:.2f} 점포/억원",
-                    "level": _level_from_pct(p, spec.direction),
-                    "percentile": round(p, 3),
-                    "reason": "D4 점포수 / 월평균 매출(억원)",
-                    "as_of": _registry_as_of("D4"), "spec": spec, "raw": v}
-    v = float(sc.loc[dong])
-    p = _percentile(v, sc)
+        aligned = sc.reindex(monthly_oku.index).fillna(0)
+        sales = monthly_oku.reindex(aligned.index)
+        if dong in sales.index and pd.notna(sales.loc[dong]) and float(sales.loc[dong]) > 0:
+            mixed = float(aligned.loc[dong]) / float(sales.loc[dong])
+            reason += (
+                f". 참고 비율 {mixed:.2f} 점포/억원은 점포 {store_as_of}"
+                f" / 매출 {ANALYSIS_WINDOW}"
+            )
+    else:
+        reason += " (카드 매출 없음)"
     return {"name": spec.name,
-            "value": f"{int(v)}개 점포 (업종 내 상위 {(1-p)*100:.0f}%)",
+            "value": f"{int(stores)}개 점포 ({rank}위/{len(sc)})",
             "level": _level_from_pct(p, spec.direction),
             "percentile": round(p, 3),
-            "reason": "D4 점포수 백분위 (카드 데이터 없음)",
-            "as_of": _registry_as_of("D4"), "spec": spec, "raw": v}
+            "reason": reason,
+            "as_of": store_as_of, "spec": spec, "raw": stores}
 
 
 def compute_survival(dong: str, category: str, spec: SignalSpec, _ctx: dict) -> dict:

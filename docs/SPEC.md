@@ -10,7 +10,7 @@
 
 ## 1. 한 줄 정의
 
-제주에서 창업하려는 사람이 **업종·지역·조건**을 입력하면, Agent가 제주데이터허브 데이터를 조회·결합·계산해서 **관광 의존도, 계절 변동성, 수요, 유동, 경쟁 밀도, 생존, 최근 개폐업**을 진단하고, **3D 지도와 근거 리포트**로 보여주며 **대안 지역**을 제시하는 앱. 업종 추천(`find_gap_category`)과 시장 트렌드(`get_trend`)는 아직 동작하지 않는다.
+제주에서 창업하려는 사람이 **업종·지역·조건**을 입력하면, Agent가 제주데이터허브 데이터를 조회·결합·계산해서 **관광 의존도, 계절 변동성, 수요, 유동, 경쟁 밀도, 생존, 최근 개폐업**을 진단하고, **3D 지도와 근거 리포트**로 보여주며 **대안 지역**을 제시하는 앱. 업종을 묻는 질문은 `find_gap_category`로 빈틈 업종을 내고, `get_trend`는 업종 트렌드 문장만 붙인다.
 
 ## 2. 문제 정의 (기획서 근거)
 
@@ -42,8 +42,8 @@
 - [x] `compare_places`: 빨간 신호 2개 이상, 또는 지역 미지정 시 Top 3
 - [x] 월 슬라이더 (1~12월 기둥 높이 변화)
 - [x] 후속 채팅 ("그럼 한림은?"는 업종을 유지하고 지역만 바꾼다)
-- [ ] `get_trend`: D3 parquet은 있으나 도구는 `NotImplementedError`
-- [ ] `find_gap_category`: 미구현. 지역만 있으면 업종을 되묻는다
+- [x] `get_trend`: 업종 전체 2018 대비 최근 연도 증감. 지역 점수에는 넣지 않는다
+- [x] `find_gap_category`: 업종 추천 질문이면 빈틈 업종 리포트. 폼에서 지역만 고르면 업종을 되묻는다
 
 ### 3.3 제외 (이번 데모에서 안 함)
 - 일별 기상 데이터 연동 (카드 데이터가 월 단위라 연결 불가)
@@ -61,7 +61,7 @@
 | 데이터 | pandas + parquet | 전처리 결과를 parquet으로 저장해 실행 속도 확보 |
 | 프론트엔드 | TypeScript, React, Vite | 레이아웃·3D 자유도 |
 | 3D 지도 | deck.gl (`@deck.gl/react`), MapLibre 없이 단독 사용 | 브라우저 WebGL, 베이스맵 타일 의존성 없음 |
-| 차트 | Recharts | 월별 패턴. 업종 트렌드 차트는 `get_trend`가 없어 아직 없다 |
+| 차트 | Recharts | 월별 패턴. 업종 트렌드는 문장으로 붙이고 차트 축에는 넣지 않는다 |
 | LLM | 외부 API, function calling 지원 모델 (`LLM_PROVIDER` 환경변수로 교체 가능) | 센터 PC(VRAM 3GB)에서 로컬 LLM 불가 |
 | 공용 스키마 | `packages/schema/report.schema.json` | Python 출력과 TS 렌더링이 같은 계약을 따름 |
 
@@ -164,8 +164,8 @@
 | `compare_places(category, dongs?, top_k=3, weights)` | dongs 생략 시 전체 | 순위 표 | 구현 |
 | `get_dong_vitality(dong)` | | D6 생멸. parquet이 없으면 unavailable | 함수는 있음. 규칙 루프는 호출하지 않음 |
 | `get_tourism_trend` | | D9 입도객. 제출본에는 parquet 없음 | 구현, 데이터 없음 |
-| `find_gap_category(dong)` | | — | `NotImplementedError` |
-| `get_trend(category)` | | — | `NotImplementedError` |
+| `find_gap_category(dong)` | | 수요 대비 점포가 적은 업종 | 구현 |
+| `get_trend(category)` | | 2018 대비 최근 연도 증감 | 구현. 지역 점수에는 미포함 |
 | `render_map(layer, category, highlight[])` | demand / tourism / supply / footfall / survival | UI 지시 | 구현 |
 
 모든 도구 출력에는 `source`(데이터 ID), `period`(기간), `note`(한계) 필드를 포함한다.
@@ -185,17 +185,17 @@
   "summary": "한 문장 결론",
   "target": {"dong": "애월읍", "category": "카페"},
   "signals": [
-    {"name": "관광 의존도", "value": "74.5%", "level": "red", "reason": "...", "as_of": "2021-05"},
+    {"name": "관광 의존도", "value": "74.5%", "level": "red", "reason": "...", "as_of": "2018-01~2019-12"},
     {"name": "계절 변동성", "value": "1.96배", "level": "yellow", "reason": "..."},
     {"name": "수요 규모", "value": "업종 내 6위 / 41", "level": "green", "reason": "..."},
-    {"name": "유동 수요", "value": "방문인구 월평균 7,582,178명 (업종 무관, 3위/43)", "level": "green", "reason": "..."},
-    {"name": "경쟁 밀도", "value": "333.20 점포/억원", "level": "yellow", "reason": "..."},
+    {"name": "유동 수요", "value": "3위/43 (업종 무관 참고 7,582,178명)", "level": "green", "reason": "..."},
+    {"name": "경쟁 밀도", "value": "225개 점포 (1위/43)", "level": "red", "reason": "점수는 점포수 백분위. 333.20 점포/억원은 참고"},
     {"name": "생존 리스크", "value": "3년 생존율 66.3% (n=261)", "level": "red", "reason": "..."},
     {"name": "최근 개폐업", "value": "24개월 개업 53/폐업 36 (순증 +17)", "level": "green", "reason": "..."}
   ],
-  "score": 50,
-  "alternatives": [{"dong": "이도2동", "score": 82, "why": "..."}],
-  "trend": null,
+  "score": 46,
+  "alternatives": [{"dong": "일도2동", "score": 78, "why": "..."}],
+  "trend": "카페 업종 전체 이용금액은 2018년 대비 2025년 -40.4%. 제주 전체라 지역 점수는 바꾸지 않는다.",
   "evidence": [{"source": "D1", "period": "2018-01~2019-12", "detail": "..."}],
   "limitations": ["카드사 표본 데이터", "2021년 5월 이후 지역별 데이터 없음"],
   "map": {"layer": "survival", "highlight": ["애월읍", "이도2동", "일도2동", "화북동"]}
@@ -207,7 +207,7 @@
 | Agent가 스스로 | Agent가 하지 않음 |
 |---|---|
 | 규칙 루프의 고정 도구 순서, Gemini 경로의 도구 선택 | 데이터에 없는 수치 생성 |
-| 빨간 신호 2개 이상일 때 대안 지역 탐색 | 업종 추천 (`category_recommend`는 분류만 되고 규칙 루프는 업종을 되묻는다) |
+| 빨간 신호 2개 이상일 때 대안 지역 탐색, 업종 추천 질문이면 빈틈 업종 | 폼에서 지역만 고른 경우의 추측 (업종을 되묻는다) |
 | 표본 부족 시 상위 단위 대체 | 모호한 입력을 추측으로 진행, 성공 여부 단정 |
 | 지도 레이어 선택과 강조 지역 지정 | 개인정보 수집 |
 
@@ -324,9 +324,9 @@ AGENT_MAX_TOOL_CALLS=8
 
 | # | 입력 | 기대 동작 |
 |---|---|---|
-| S1 | 카페 / 애월읍 / 상관없음 / 안정형 | 관광 의존도 🔴, 계절 🟡, 생존 🔴, 점수 50. 대안 이도2동 82 · 일도2동 80 · 화북동 75 |
-| S2 | 카페 / 지역 없음 / 도민 / 균형 | 지역 추천. Top 3는 이도2동 82, 일도2동 81, 화북동 75. 대상 점수는 null |
-| S3 | 자연어 "성산에 뭐 하면 좋을까" | 성산읍으로 해석한 뒤 업종을 되묻는다. 빈틈 업종 추천은 하지 않는다 |
+| S1 | 카페 / 애월읍 / 상관없음 / 안정형 | 관광 🔴, 계절 🟡, 경쟁 🔴, 생존 🔴, 점수 46. 대안 일도2동 78 · 화북동 75 · 이도2동 72 |
+| S2 | 카페 / 지역 없음 / 도민 / 균형 | 지역 추천. Top 3는 일도2동 78, 화북동 75, 이도2동 71. 대상 점수는 null |
+| S3 | 자연어 "성산에 뭐 하면 좋을까" | 성산읍의 빈틈 업종 리포트. 대상 업종·점수는 null, 대안은 업종 이름 |
 | S4 | 애월읍, 업종 없음 | `'애월읍' 지역에서 어떤 업종을 검토할지 선택해 주세요.` 리포트 없음 |
 | S5 | 매핑 밖 (예: 자동차 정비소) | 업종을 되묻고 리포트 없음. 네일샵은 매핑된 partial이라 점수 null, 신호 2/7 |
 

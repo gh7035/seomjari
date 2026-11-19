@@ -198,7 +198,7 @@ def chat(q: ChatQuery):
 
     new_form = {
         "category": cat_hint or prev_form.get("category"),
-        "dong": place_hint,
+        "dong": place_hint or prev_form.get("dong"),
         "customer": prev_form.get("customer", "any"),
         "ages": [], "risk": prev_form.get("risk", "balanced"),
         "question": q.question,
@@ -207,7 +207,8 @@ def chat(q: ChatQuery):
     sessions.put_run(run_id, new_form, parent=q.run_id)
     log_event(log, 20, "chat_follow_up", run_id=run_id, parent=q.run_id,
               parsed_dong=place_hint, parsed_category=cat_hint)
-    return {"run_id": run_id, "parsed": {"dong": place_hint, "category": cat_hint}}
+    return {"run_id": run_id, "parsed": {
+        "dong": new_form["dong"], "category": new_form["category"]}}
 
 
 # ---------- 지도 ----------

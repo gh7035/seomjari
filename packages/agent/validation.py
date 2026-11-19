@@ -107,10 +107,7 @@ def extract_numbers(text: str) -> set[str]:
 
 def grounding_stray(report: dict, tool_summaries: list[str]) -> set[str]:
     """리포트 텍스트의 수치 중 도구 요약·signals에서 찾을 수 없는 것."""
-    haystack_parts = list(tool_summaries)
-    for s in report.get("signals") or []:
-        haystack_parts.append(str(s.get("value", "")))
-    haystack = " ".join(haystack_parts)
+    haystack = " ".join(tool_summaries)
 
     report_text = " ".join([
         str(report.get("summary", "")),

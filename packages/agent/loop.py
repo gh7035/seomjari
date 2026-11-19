@@ -29,6 +29,25 @@ from .log import get_logger, log_event
 log = get_logger("agent.loop")
 
 STEPS = ["의도 파악", "분석 계획", "도구 실행", "결과 검증", "리포트 작성"]
+DIAGNOSE_TOOLS = [
+    "get_demand", "get_supply", "get_footfall", "get_survival",
+    "get_recent_openings", "get_dong_vitality", "get_tourism_trend",
+    "get_trend", "score_risk",
+]
+
+
+def _eok(krw: float) -> str:
+    return f"{krw / 1e8:.2f}억 원"
+
+
+def _planned_tools(dong: str | None, category: str | None, intent: str | None) -> list[str]:
+    if dong and not category and intent == "category_recommend":
+        return ["find_gap_category", "get_trend"]
+    if category and not dong:
+        return ["compare_places"]
+    if dong and category:
+        return list(DIAGNOSE_TOOLS)
+    return []
 
 
 # ---------- 가중치 ----------
@@ -76,7 +95,7 @@ def _summarize(name: str, result: dict[str, Any]) -> str:
     if name == "get_demand":
         if not result.get("available"):
             return f"수요 데이터 없음 ({result.get('dong')} {result.get('category')})"
-        return (f"{result['dong']} {result['category']} 월평균 {result['monthly_avg_krw']:,}원, "
+        return (f"{result['dong']} {result['category']} 월평균 {_eok(result['monthly_avg_krw'])}, "
                 f"관광 {result['tourism_ratio']*100:.1f}% / 도민 {result['local_ratio']*100:.1f}%, "
                 f"성수/비수 {result['season_ratio']}배")
     if name == "get_supply":
@@ -113,7 +132,10 @@ def _summarize(name: str, result: dict[str, Any]) -> str:
         levels = [s["level"] for s in result["signals"]]
         emoji = {"green": "🟢", "yellow": "🟡", "red": "🔴", "unavailable": "⚪"}
         mode = result.get("mode", "full")
-        return f"score={result['score']} ({mode}) · {''.join(emoji[l] for l in levels)}"
+        vals = ", ".join(
+            f"{s['name']} {s['value']}" for s in result.get("signals") or []
+            if s.get("level") != "unavailable")
+        return f"score={result['score']} ({mode}) · {''.join(emoji[l] for l in levels)} · {vals}"
     if name == "compare_places":
         if not result.get("available"):
             return "비교 불가"
@@ -121,6 +143,25 @@ def _summarize(name: str, result: dict[str, Any]) -> str:
         return "Top: " + ", ".join(f"{r['dong']}({r['score']})" for r in top[:3])
     if name == "render_map":
         return f"map layer={result.get('layer')} highlight={result.get('highlight')}"
+    if name == "get_footfall":
+        if not result.get("available"):
+            return "D2 유동인구 없음"
+        return (f"{result.get('dong')} 방문인구 {result.get('rank')}위/{result.get('of')}"
+                f" (업종 무관 참고 {result.get('방문인구_월평균', 0):,}명)")
+    if name == "find_gap_category":
+        gaps = result.get("gaps") or []
+        if not gaps:
+            return f"{result.get('dong')} 빈틈 업종 없음"
+        bits = [f"{g['category']} 수요 {g['demand_rank']}위/{g['demand_n']}"
+                f" 점포 {g['n_stores']}개 ({g['store_rank']}위/{g['store_n']})"
+                for g in gaps[:5]]
+        return "빈틈: " + ", ".join(bits)
+    if name == "get_trend":
+        if not result.get("available"):
+            return "D3 트렌드 없음"
+        return result.get("text") or "D3 트렌드"
+    if name == "plan":
+        return result.get("summary") or "계획"
     return "ok"
 
 
@@ -149,7 +190,7 @@ def _evidence_from_tools(dong: str | None, category: str | None,
     ev: list[dict] = []
     if demand.get("available"):
         ev.append({"source": "D1", "period": demand.get("period", "2018-01~2019-12"),
-                   "detail": (f"{dong}·{category} 월평균 {demand['monthly_avg_krw']:,}원 "
+                   "detail": (f"{dong}·{category} 월평균 {_eok(demand['monthly_avg_krw'])} "
                               f"(관광 {demand['tourism_ratio']*100:.1f}% / 도민 {demand['local_ratio']*100:.1f}%)")})
     if supply.get("available"):
         ev.append({"source": "D4", "period": supply.get("period", "2025-09"),
@@ -164,13 +205,14 @@ def _evidence_from_tools(dong: str | None, category: str | None,
                               f"개업 {opens['opens']}/폐업 {opens['closes']} (순증 {opens['net']:+d})")})
     if foot and foot.get("available"):
         ev.append({"source": "D2", "period": foot.get("period", "2017-01~2021-05"),
-                   "detail": f"{dong} 방문인구 월평균 {foot['방문인구_월평균']:,}명"})
+                   "detail": (f"{dong} 방문인구 {foot.get('rank')}위/{foot.get('of')}"
+                              f" (업종 무관 참고 {foot['방문인구_월평균']:,}명)")})
     return ev
 
 
 # 데이터별 한계 문구 (동적 limitations 생성용)
 DATASET_LIMIT_TEXT = {
-    "D1": "D1 카드 매출: 2021-05까지 · 카드사 표본 영향 (비중·배율 우선 해석)",
+    "D1": "D1 카드 매출: 데이터셋은 2021-05까지, 분석 창은 2018-01~2019-12 · 카드사 표본 영향",
     "D2": "D2 유동인구: 2021-05까지 · 월 평균 기반",
     "D3": "D3 업종별 카드 이용: 제주 전체 단위 (지역 구분 없음)",
     "D4": "D4 상가 정보: 2025-09 스냅샷 (실시간 상태 아님)",
@@ -270,7 +312,10 @@ def _build_report(form: dict, dong: str | None, category: str | None,
                   demand: dict, supply: dict, surv: dict, opens: dict,
                   risk: dict, alts: list[dict], foot: dict | None = None,
                   constraints: dict | None = None,
-                  form_applied: dict | None = None) -> dict:
+                  form_applied: dict | None = None,
+                  trend: dict | None = None,
+                  vitality: dict | None = None,
+                  tourism: dict | None = None) -> dict:
     signals = risk.get("signals", []) if risk.get("available") else []
     score = risk.get("score") if risk.get("available") else None
     confidence = risk.get("confidence", "normal")
@@ -307,7 +352,29 @@ def _build_report(form: dict, dong: str | None, category: str | None,
         summary = "입력이 모호함. 업종과 지역을 확정해 주세요."
 
     evidence = _evidence_from_tools(dong, category, demand, supply, surv, opens, foot)
-    limitations = _dynamic_limitations(risk)
+    trend_text = None
+    if trend and trend.get("available") and trend.get("text"):
+        trend_text = trend["text"]
+        evidence.append({"source": "D3", "period": trend.get("period", ""),
+                         "detail": trend_text})
+    if vitality and vitality.get("available"):
+        records = vitality.get("records") or []
+        last = records[-1] if records else {}
+        year = last.get("year", "")
+        net = last.get("순증")
+        try:
+            net_txt = "자료 없음" if net is None or net != net else f"{int(net):+d}"
+        except (TypeError, ValueError):
+            net_txt = "자료 없음"
+        evidence.append({
+            "source": "D6",
+            "period": vitality.get("period", ""),
+            "detail": f"{dong} 사업체 생멸 {year}년 순증 {net_txt} (업종 무관 참고)",
+        })
+    extra_limits = []
+    if tourism is not None and not tourism.get("available"):
+        extra_limits.append("D9 입도객 없음")
+    limitations = _dynamic_limitations(risk, extra_limits)
 
     highlight = [dong] if dong else []
     for a in alts:
@@ -331,7 +398,7 @@ def _build_report(form: dict, dong: str | None, category: str | None,
         "confidence": confidence,              # "normal" | "low"
         "active_signals": active_count,
         "total_signals": len(signals),
-        "alternatives": alts, "trend": None,
+        "alternatives": alts, "trend": trend_text,
         "evidence": evidence, "limitations": limitations,
         "map": {"layer": layer, "highlight": highlight},
         "mode": mode,
@@ -349,6 +416,81 @@ def _build_report(form: dict, dong: str | None, category: str | None,
             "values": [int(mp.get(m, 0)) for m in range(1, 13)],
         }
     return report
+
+
+async def _run_gap(form: dict[str, Any], dong: str,
+                   constraints: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
+    """지역만 있고 업종 추천 의도일 때 빈틈 업종 리포트."""
+
+    async def step(i: int, status: str):
+        return {"type": "step", "index": i, "name": STEPS[i], "status": status}
+
+    yield await step(2, "running")
+    gap = tools.find_gap_category(dong)
+    yield {"type": "tool", "name": "find_gap_category", "args": {"dong": dong},
+           "summary": _summarize("find_gap_category", gap)}
+    gaps = gap.get("gaps") or []
+    trend = {"available": False}
+    if gaps:
+        trend = tools.get_trend(gaps[0]["category"])
+        yield {"type": "tool", "name": "get_trend",
+               "args": {"category": gaps[0]["category"]},
+               "summary": _summarize("get_trend", trend)}
+    yield await step(2, "done")
+    yield await step(3, "running")
+    yield await step(3, "done")
+    yield await step(4, "running")
+
+    alts = [{
+        "dong": g["category"],
+        "score": int(round(g["gap"] * 100)),
+        "why": (f"수요 {g['demand_rank']}위/{g['demand_n']} · "
+                f"점포 {g['n_stores']}개 ({g['store_rank']}위/{g['store_n']}). "
+                "수요에 비해 점포가 적다."),
+    } for g in gaps]
+    evidence: list[dict] = []
+    if gaps:
+        g0 = gaps[0]
+        evidence.append({
+            "source": "D1", "period": tools.BASE_PERIOD,
+            "detail": f"{dong}·{g0['category']} 수요 {g0['demand_rank']}위/{g0['demand_n']}",
+        })
+        evidence.append({
+            "source": "D4", "period": gap.get("as_of") or "2025-09",
+            "detail": f"{dong}·{g0['category']} 점포 {g0['n_stores']}개 ({g0['store_rank']}위/{g0['store_n']})",
+        })
+    if trend.get("available") and trend.get("text"):
+        evidence.append({"source": "D3", "period": trend.get("period", ""),
+                         "detail": trend["text"]})
+    report = {
+        "summary": f"{dong}에서 수요는 높은데 점포는 적은 업종 {len(alts)}개를 골랐습니다.",
+        "target": {"dong": dong, "category": None},
+        "signals": [],
+        "score": None,
+        "confidence": "normal",
+        "active_signals": 0,
+        "total_signals": 0,
+        "alternatives": alts,
+        "trend": trend.get("text") if trend.get("available") else None,
+        "evidence": evidence,
+        "limitations": [
+            DATASET_LIMIT_TEXT["D1"],
+            DATASET_LIMIT_TEXT["D4"],
+            "D9 입도객 없음",
+        ],
+        "map": {"layer": "demand", "highlight": [dong]},
+        "mode": "full",
+        "focus": "gap",
+        "form_applied": {
+            "category": None,
+            "dong": dong,
+            "customer": constraints.get("customer") or form.get("customer", "any"),
+            "ages": constraints.get("ages") or form.get("ages") or [],
+            "risk": form.get("risk", "balanced"),
+        },
+    }
+    yield await step(4, "done")
+    yield {"type": "report", "report": report, "mode": report["mode"]}
 
 
 # ---------- fallback 루프 ----------
@@ -370,6 +512,7 @@ async def _run_fallback(form: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
     # parse_intent: 폼이 비어 있거나 자연어가 있으면 호출
     hints: dict[str, Any] = {}
     constraints: dict[str, Any] = {}
+    intent: dict[str, Any] = {}
     if question and (not text_cat or not text_dong):
         intent = tools.parse_intent(question)
         yield {"type": "tool", "name": "parse_intent",
@@ -413,23 +556,30 @@ async def _run_fallback(form: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
 
     dong = r_place.get("dong")
     category = r_cat.get("app_category")
+    intent_name = intent.get("intent")
     yield await step(0, "done")
 
-    # ② 계획
+    # ② 계획 — 이번 실행에서 호출할 도구를 먼저 보여 준다
+    planned = _planned_tools(dong, category, intent_name)
     yield await step(1, "running")
-    await asyncio.sleep(0)
+    if planned:
+        yield {"type": "tool", "name": "plan",
+               "args": {"tools": planned},
+               "summary": "계획: " + ", ".join(planned)}
     yield await step(1, "done")
 
     # 라우팅
     if not category and not dong:
-        # clarify: 질문이 있으면 그걸로 힌트 안내, 아니면 업종부터
         if r_cat.get("candidates"):
-            yield _clarify_category(f"업종이 모호합니다. 아래 중 선택해 주세요.")
+            yield _clarify_category("업종이 모호합니다. 아래 중 선택해 주세요.")
         else:
             yield _clarify_category("어떤 업종을 생각하세요?")
         return
+    if not category and intent_name == "category_recommend":
+        async for ev in _run_gap(form, dong, constraints):
+            yield ev
+        return
     if not category:
-        # 지역만 있음 → 업종 되묻기 (업종 추천 모드는 아직 fallback에서 미구현)
         yield _clarify_category(f"'{dong}' 지역에서 어떤 업종을 검토할지 선택해 주세요.")
         return
 
@@ -438,9 +588,15 @@ async def _run_fallback(form: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
 
     # ③ 도구 실행 (context에 constraints 전달)
     yield await step(2, "running")
-    ctx = {"ages": constraints.get("ages"), "customer": constraints.get("customer")}
+    ctx = {
+        "ages": constraints.get("ages") or form.get("ages") or [],
+        "customer": constraints.get("customer") or form.get("customer"),
+    }
     demand = supply = surv = opens = {"available": False}
     foot: dict = {"available": False}
+    trend: dict = {"available": False}
+    vitality: dict = {"available": False}
+    tourism: dict = {"available": False}
     risk = {"available": False}
     alts: list[dict] = []
 
@@ -457,6 +613,9 @@ async def _run_fallback(form: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
                      "why": f"가용 신호 {r.get('active_signals','?')}/{r.get('total_signals','?')} 중 green "
                             f"{sum(1 for v in r['signals'].values() if v=='green')}개"}
                     for r in cmp_res["ranking"]]
+        trend = tools.get_trend(category)
+        yield {"type": "tool", "name": "get_trend",
+               "args": {"category": category}, "summary": _summarize("get_trend", trend)}
     else:
         demand = tools.get_demand(dong, category)
         yield {"type": "tool", "name": "get_demand",
@@ -478,9 +637,15 @@ async def _run_fallback(form: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
         yield {"type": "tool", "name": "get_recent_openings",
                "args": {"dong": dong, "category": category, "months": 24},
                "summary": _summarize("get_recent_openings", opens)}
-        trend = tools.get_tourism_trend()
+        tourism = tools.get_tourism_trend()
         yield {"type": "tool", "name": "get_tourism_trend",
-               "args": {}, "summary": _summarize("get_tourism_trend", trend)}
+               "args": {}, "summary": _summarize("get_tourism_trend", tourism)}
+        vitality = tools.get_dong_vitality(dong)
+        yield {"type": "tool", "name": "get_dong_vitality",
+               "args": {"dong": dong}, "summary": _summarize("get_dong_vitality", vitality)}
+        trend = tools.get_trend(category)
+        yield {"type": "tool", "name": "get_trend",
+               "args": {"category": category}, "summary": _summarize("get_trend", trend)}
         risk = tools.score_risk(dong, category, weights=weights, context=ctx)
         yield {"type": "tool", "name": "score_risk",
                "args": {"dong": dong, "category": category, "weights": weights, "context": ctx},
@@ -514,7 +679,8 @@ async def _run_fallback(form: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
         "risk": form.get("risk", "balanced"),
     }
     report = _build_report(form, dong, category, demand, supply, surv, opens, risk, alts,
-                           foot=foot, constraints=constraints, form_applied=form_applied)
+                           foot=foot, constraints=constraints, form_applied=form_applied,
+                           trend=trend, vitality=vitality, tourism=tourism)
     yield await step(4, "done")
     yield {"type": "report", "report": report, "mode": report.get("mode", "fallback")}
 
@@ -557,15 +723,38 @@ async def _run_llm(form: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
         {"role": "user", "content": _user_prompt(form)},
     ]
     yield await step(0, "running"); yield await step(0, "done")
-    yield await step(1, "running"); yield await step(1, "done")
+    planned = list(DIAGNOSE_TOOLS)
+    yield await step(1, "running")
+    yield {"type": "tool", "name": "plan", "args": {"tools": planned},
+           "summary": "계획: " + ", ".join(planned)}
+    yield await step(1, "done")
     yield await step(2, "running")
 
     last_text: str | None = None
     tool_summaries: list[str] = []
     max_calls = settings().agent_max_tool_calls
+    used = 0
+    capped = False
+
+    async def _fallback_report(reason: str):
+        log_event(log, 30, "llm_report_fallback", reason=reason, tool_calls=used)
+        async for ev in _run_fallback(form):
+            if ev.get("type") == "report":
+                rep = ev["report"]
+                rep["mode"] = "llm_fallback"
+                lim = list(rep.get("limitations") or [])
+                note = "LLM 오류로 규칙 기반으로 재생성"
+                if capped:
+                    note = f"도구 호출이 {max_calls}회 상한에 닿아 규칙 루프로 재생성"
+                if note not in lim:
+                    lim.append(note)
+                rep["limitations"] = lim
+                yield {"type": "report", "report": rep, "mode": "llm_fallback"}
+                return
+            yield ev
 
     try:
-        for _ in range(max_calls):
+        while used < max_calls:
             result = await asyncio.to_thread(
                 llm.chat_with_tools, messages, prompts.TOOL_SPECS,
             )
@@ -577,6 +766,9 @@ async def _run_llm(form: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
                              "tool_calls": calls,
                              "_raw_content": result.get("_raw_content")})
             for call in calls:
+                if used >= max_calls:
+                    capped = True
+                    break
                 name = call["name"]
                 args = call.get("arguments") or {}
                 fn = tools.REGISTRY.get(name)
@@ -596,17 +788,18 @@ async def _run_llm(form: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
                 yield {"type": "tool", "name": name, "args": args, "summary": summary}
                 messages.append({"role": "tool", "name": name,
                                  "content": json.dumps(out, ensure_ascii=False, default=str)})
-        if len(tool_summaries) == 0:
+                used += 1
+            if capped:
+                log_event(log, 30, "tool_cap_reached", used=used, max=max_calls)
+                break
+        if len(tool_summaries) == 0 and not capped:
             log_event(log, 30, "llm_zero_tools", text_len=len(last_text or ""))
     except Exception as e:  # noqa: BLE001
         log_event(log, 40, "llm_fatal", error=str(e))
         yield {"type": "tool", "name": "llm_error",
                "args": {}, "summary": f"{type(e).__name__}: {str(e)[:120]} → fallback"}
-        async for ev in _run_fallback(form):
-            if ev.get("type") == "report":
-                yield {"type": "report", "report": ev["report"], "mode": "llm_fallback"}
-            else:
-                yield ev
+        async for ev in _fallback_report(str(e)):
+            yield ev
         return
 
     yield await step(2, "done")
@@ -623,14 +816,9 @@ async def _run_llm(form: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
                       shape_errors=shape_errs, stray_numbers=sorted(stray))
             report = None
 
-    if not report:
-        log_event(log, 30, "llm_report_fallback")
-        async for ev in _run_fallback(form):
-            if ev.get("type") == "report":
-                yield {"type": "report", "report": ev["report"], "mode": "llm_fallback"}
-                return
-            else:
-                yield ev
+    if capped or not report:
+        async for ev in _fallback_report("cap" if capped else "invalid_report"):
+            yield ev
         return
 
     _enforce_server_fields(report, form, constraints)

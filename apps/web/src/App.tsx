@@ -41,6 +41,7 @@ export default function App() {
   const [view, setView] = useState<View>('landing')
   const [events, setEvents] = useState<AgentEvent[]>([])
   const [report, setReport] = useState<Report | null>(null)
+  const [mapReport, setMapReport] = useState<Report | null>(null)
   const [busy, setBusy] = useState(false)
   const [meta, setMeta] = useState<Meta | null>(null)
   const [runId, setRunId] = useState<string | null>(null)
@@ -105,7 +106,7 @@ export default function App() {
     setBusy(true); setEvents([]); setReport(null); setRunId(id)
     streamEvents(id, (ev) => {
       setEvents((prev) => [...prev, ev])
-      if (ev.type === 'report') { setReport(ev.report); setBusy(false) }
+      if (ev.type === 'report') { setReport(ev.report); setMapReport(ev.report); setBusy(false) }
       if (ev.type === 'error') setBusy(false)
     })
   }
@@ -142,7 +143,7 @@ export default function App() {
   }
 
   function backToLanding() {
-    setView('landing'); setReport(null); setEvents([]); setRunId(null); setBusy(false)
+    setView('landing'); setReport(null); setMapReport(null); setEvents([]); setRunId(null); setBusy(false)
     setInitialForm(null); setInitialQuestion(null)
   }
 
@@ -181,9 +182,11 @@ export default function App() {
           <div className="map-stack">
             <div className="map-wrap">
               <Map3D
-                layer={report?.map.layer ?? 'demand'}
-                category={report?.target.category ?? null}
-                highlight={report?.map.highlight ?? []}
+                layer={mapReport?.map.layer ?? 'demand'}
+                category={mapReport?.focus === 'gap'
+                  ? (mapReport.alternatives?.[0]?.dong ?? null)
+                  : (mapReport?.target.category ?? null)}
+                highlight={mapReport?.map.highlight ?? []}
                 month={month}
                 onSelectDong={setDetail}
               />

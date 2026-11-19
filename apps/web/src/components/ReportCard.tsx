@@ -81,9 +81,15 @@ export default function ReportCard({ report }: { report: Report | null }) {
         </div>
       )}
 
+      {report.evidence?.some((e) => e.source === 'D6') && (
+        <p className="trend-line">
+          지역 생멸 · {report.evidence.find((e) => e.source === 'D6')?.detail}
+        </p>
+      )}
+
       {report.alternatives && report.alternatives.length > 0 && (
         <div className="alts" data-tour="alts">
-          <h4>대안 지역 Top {report.alternatives.length}</h4>
+          <h4>{report.focus === 'gap' ? '빈틈 업종' : `대안 지역 Top ${report.alternatives.length}`}</h4>
           <ul>
             {report.alternatives.map((a) => (
               <li key={a.dong}>

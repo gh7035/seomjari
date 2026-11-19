@@ -105,8 +105,8 @@ export default function Entry({ meta, onSubmit, busy, onHelp }: {
         <div className="entry-features" data-tour="entry-features">
           <div className="feat">
             <div className="feat-ic">🎯</div>
-            <h3>신호등 4개</h3>
-            <p>관광 의존도 · 계절 변동성 · 경쟁 밀도 · 수요 규모</p>
+            <h3>신호 7개</h3>
+            <p>관광 의존도 · 계절 변동성 · 수요 규모 · 유동 수요 · 경쟁 밀도 · 생존 리스크 · 최근 개폐업</p>
           </div>
           <div className="feat">
             <div className="feat-ic">🗺️</div>
@@ -122,7 +122,7 @@ export default function Entry({ meta, onSubmit, busy, onHelp }: {
       </main>
 
       <footer className="entry-foot">
-        데이터: 제주데이터허브 (D1 카드매출 · D2 유동인구 · D3 트렌드 · D4 상가정보) · 기준 기간 {meta?.period.base ?? '2018-01~2019-12'}
+        데이터: 제주데이터허브 (D1 카드매출 · D2 유동인구 · D4 상가정보 · D5 음식점 인허가) · 기준 기간 {meta?.period.base ?? '2018-01~2019-12'}
       </footer>
     </div>
   )
