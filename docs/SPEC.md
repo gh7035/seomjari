@@ -10,7 +10,7 @@
 
 ## 1. 한 줄 정의
 
-제주에서 창업하려는 사람이 **업종·지역·조건**을 입력하면, Agent가 제주데이터허브 데이터를 스스로 조회·결합·계산해서 **관광 의존도, 계절 변동성, 경쟁 밀도, 시장 트렌드**를 진단하고, **3D 지도와 근거 리포트**로 보여주며 **대안 지역·업종**까지 제시하는 앱.
+제주에서 창업하려는 사람이 **업종·지역·조건**을 입력하면, Agent가 제주데이터허브 데이터를 조회·결합·계산해서 **관광 의존도, 계절 변동성, 수요, 유동, 경쟁 밀도, 생존, 최근 개폐업**을 진단하고, **3D 지도와 근거 리포트**로 보여주며 **대안 지역**을 제시하는 앱. 업종 추천(`find_gap_category`)과 시장 트렌드(`get_trend`)는 아직 동작하지 않는다.
 
 ## 2. 문제 정의 (기획서 근거)
 
@@ -30,19 +30,20 @@
 
 ## 3. 데모 범위
 
-### 3.1 MVP (반드시 동작)
-- [ ] 사전 정보 입력 폼 (업종, 희망 지역, 주 고객, 리스크 성향)
-- [ ] Agent 루프 (의도 파악 → 계획 → 도구 실행 → 검증 → 리포트)
-- [ ] 핵심 도구 5개: `resolve_place`, `resolve_category`, `get_demand`, `get_supply`, `score_risk`
-- [ ] 진단 카드 (신호등 4개 + 근거 + 한계)
-- [ ] 3D 지도 1종 (행정동 기둥 = 업종 매출, 색 = 관광 의존도)
-- [ ] 진행 단계 실시간 표시
+### 3.1 동작하는 범위
+- [x] 사전 정보 입력 폼 (업종 16종, 희망 지역, 주 고객, 타깃 연령, 리스크 성향)
+- [x] Agent 루프 (의도 파악 → 계획 상태 → 도구 실행 → 검증 → 리포트)
+- [x] 진단 도구: `resolve_place`, `resolve_category`, `get_demand`, `get_supply`, `get_footfall`, `get_survival`, `get_recent_openings`, `score_risk`
+- [x] 진단 카드 (신호 7개 + 근거 + 한계). 가용 신호가 3개 미만이거나 수요 계열이 없으면 점수는 null
+- [x] 3D 지도 5레이어 (수요·관광·공급·유동·생존)
+- [x] 진행 단계 실시간 표시
 
-### 3.2 목표 (시간 되면)
-- [ ] `compare_places`: 대안 지역 Top 3 자동 비교
-- [ ] 월 슬라이더 (1~12월 기둥 높이 변화)
-- [ ] 후속 채팅 ("그럼 한림은?")
-- [ ] `get_trend`: 2018~2025 업종 트렌드 차트
+### 3.2 추가 구현과 남은 항목
+- [x] `compare_places`: 빨간 신호 2개 이상, 또는 지역 미지정 시 Top 3
+- [x] 월 슬라이더 (1~12월 기둥 높이 변화)
+- [x] 후속 채팅 ("그럼 한림은?"는 업종을 유지하고 지역만 바꾼다)
+- [ ] `get_trend`: D3 parquet은 있으나 도구는 `NotImplementedError`
+- [ ] `find_gap_category`: 미구현. 지역만 있으면 업종을 되묻는다
 
 ### 3.3 제외 (이번 데모에서 안 함)
 - 일별 기상 데이터 연동 (카드 데이터가 월 단위라 연결 불가)
@@ -60,7 +61,7 @@
 | 데이터 | pandas + parquet | 전처리 결과를 parquet으로 저장해 실행 속도 확보 |
 | 프론트엔드 | TypeScript, React, Vite | 레이아웃·3D 자유도 |
 | 3D 지도 | deck.gl (`@deck.gl/react`), MapLibre 없이 단독 사용 | 브라우저 WebGL, 베이스맵 타일 의존성 없음 |
-| 차트 | Recharts | 월별 패턴, 트렌드 차트 |
+| 차트 | Recharts | 월별 패턴. 업종 트렌드 차트는 `get_trend`가 없어 아직 없다 |
 | LLM | 외부 API, function calling 지원 모델 (`LLM_PROVIDER` 환경변수로 교체 가능) | 센터 PC(VRAM 3GB)에서 로컬 LLM 불가 |
 | 공용 스키마 | `packages/schema/report.schema.json` | Python 출력과 TS 렌더링이 같은 계약을 따름 |
 
@@ -76,18 +77,18 @@
 
 | ID | 데이터명 | 기간 | 지역 단위 | 용도 |
 |---|---|---|---|---|
-| D1 | 주제1: 제주 예비창업자를 위한 업종별 카드 매출과 매장수 (_18, _19, _21) | 2018-01 ~ 2019-12, 2021-01 ~ 2021-05 | 법정동 72개 | 수요, 관광 의존도, 계절 변동성 |
+| D1 | 주제1: 제주 예비창업자를 위한 업종별 카드 매출과 매장수 (_18, _19, _21) | 2018-01 ~ 2019-12, 2021-01 ~ 2021-05 | 법정동 73개 | 수요, 관광 의존도, 계절 변동성 |
 | D2 | 주제3: 상권분석을 위한 유동인구에 따른 카드 매출액 변화 (_17 ~ _21) | 2017-01 ~ 2021-05 | 행정동 43개 | 유동인구 (거주·근무·방문) |
 | D3 | 업종별 성별 카드 이용 정보 | 2018-01 ~ 2025-06 | 제주 전체 | 업종 트렌드 |
 | D4 | 제주특별자치도 상가(상권) 정보 | 2025-09 | 행정동 + 법정동 + 좌표 | 경쟁 점포 수, 지역 매핑, 지도 좌표 |
+| D5 | 제주특별자치도 음식점 목록(통합) | 1960-01 ~ 2025-08 | 점포 주소 | 3년 생존율, 24개월 개폐업 |
+| D6 | 읍면동 사업체 생멸 | 2018 ~ 2023 | 읍면동 | `dong_lifecycle.parquet`. 진단 신호에는 쓰이지 않음 |
 
 ### 5.2 검증된 사실 (전처리 시 반드시 반영)
 - 인코딩: D1, D2, D4는 **CP949**, D3는 **UTF-8 BOM**
 - D1의 `매장수`는 **시 단위 값** (제주시 전 동 동일, 서귀포시 전 동 동일) → **사용 금지**, 경쟁 점포는 D4로 계산
-- D1 법정동 72개 = D4 `법정동명`에 100% 존재
-- D2 행정동 43개 = D4 `행정동명`에 100% 존재
-- D1 업종 41개 중 D4 `표준산업분류명`과 정확히 일치하는 것은 16개 → 매핑표 필요
-- D1 업종 41개 중 40개가 D3 `biz_nm`과 일치
+- D1 법정동 73개는 D4 `법정동명`에 모두 있다. D2 행정동 43개는 D4 `행정동명`에 모두 있다.
+- 앱 업종은 16개이고, D1 업종명이 있는 것은 11개다. D1 업종 42개 중 40개가 D3 `biz_nm`과 일치한다. 상세는 `docs/data_spec.md` §2.
 - D2의 `년월` 표기가 파일마다 다름 (`2019-01-01`, `21-Apr`) → 정규화 필요
 - D1의 `연령대`, `성별`에 결측과 `알수없음` 존재 (법인 이용 등)
 - 이용금액은 특정 카드사 기준일 가능성 → 화면에는 **비중, 배율, 순위** 위주로 표시
@@ -97,22 +98,8 @@
 - D1(법정동) → 행정동 변환: D4에서 `법정동명 → 행정동명` 최빈값 매핑
 - 행정동 중심 좌표: D4 점포 좌표의 중앙값
 
-### 5.4 업종 매핑표 (`data/mapping/category_map.csv`)
-창업 수요가 높은 업종 12~15개만 매핑. 예시:
-
-| app_category | d1_업종명 | d4_표준산업분류명 (복수 가능) |
-|---|---|---|
-| 카페 | 비알콜 음료점업 | 커피 전문점; 기타 비알코올 음료점업 |
-| 한식당 | 한식 음식점업 | 한식 일반 음식점업; 한식 면요리 전문점; … (D4에서 확인 후 확정) |
-| 양식당 | 서양식 음식점업 | 서양식 음식점업 |
-| 일식당 | 일식 음식점업 | 일식 음식점업 |
-| 중식당 | 중식 음식점업 | 중식 음식점업 |
-| 술집 | 기타 주점업 | 기타 주점업; 생맥주 전문점 (D4 확인) |
-| 베이커리 | 빵 및 과자류 소매업 | 제과점업 (D4 확인) |
-| 편의점 | 체인화 편의점 | 체인화 편의점 |
-| 기념품점 | 관광 민예품 및 선물용품 소매업 | (D4 확인) |
-| 숙박(소형) | 여관업 | 여관업; 민박업 (D4 확인) |
-| 패스트푸드 | 피자, 햄버거, 샌드위치 및 유사 음식점업 | (D4 확인) |
+### 5.4 업종 매핑표 (`packages/pipeline/category_map.csv`)
+앱 업종 16개. D1 업종명이 있는 11개는 카페, 한식당, 양식당, 일식당, 중식당, 술집, 베이커리, 편의점, 기념품점, 소형숙박, 패스트푸드다. D4만 있는 5개는 PC방, 미용실, 네일샵, 헬스장, 노래방이다. 열과 구분자는 `docs/data_spec.md` §3과 같다.
 
 ### 5.5 전처리 산출물 (`data/processed/`)
 
@@ -125,30 +112,18 @@
 | `stores_points.parquet` | 점포 | app_category, 행정동, 경도, 위도 |
 | `trend_yearly.parquet` | app_category, 연도 | 이용금액_도민, 이용금액_내국인, 이용금액_외국인 |
 | `dong_meta.parquet` | 행정동 | 시군구, 중심 경도, 중심 위도, 도심/읍면 |
+| `restaurants.parquet` | 점포 | dong, app_category, 인허가일, 폐업일 |
+| `survival.parquet` | 행정동, app_category | 1년·3년 생존율, n |
+| `openings_closings_monthly.parquet` | 행정동, app_category, 년월 | 개업, 폐업, 순증 |
+| `dong_lifecycle.parquet` | 행정동, 연도 | 신생률, 소멸률, 순증 |
 
 ## 6. 지표 정의 (모두 코드로 계산, LLM은 계산하지 않음)
 
-기준 기간: **2018-01 ~ 2019-12** (코로나 이전 정상 2년). 2021년 1~5월은 "최근 참고값"으로 별도 표시.
+기준 기간: **2018-01 ~ 2019-12**. 2021-01~05는 계산에 넣지 않는다. 식·가중치·신호 방향은 `docs/data_spec.md` §5와 같다.
 
-| 지표 | 계산식 | 해석 |
-|---|---|---|
-| 수요 규모 | 기준 기간 월평균 이용금액 (해당 동·업종) | 업종 내 동 순위로 표시 |
-| 관광 의존도 | (관광개별 + 관광단체) / 합계 | 높을수록 관광 경기에 취약 |
-| 계절 변동성 | 월별 이용금액의 최대월 / 최소월 (2년 평균 월 패턴) | 높을수록 비수기 리스크 |
-| 경쟁 밀도 | 점포수(D4) / 월평균 이용금액(억원) | 높을수록 점포당 나눠 먹는 매출이 적음 |
-| 유동인구 | 방문인구 월평균 (D2) | 지도 높이·보조 지표 |
-| 시장 트렌드 | D3 기준 최근 연도 vs 전년 증감률, 2018 대비 누적 증감률 | 업종 전체 흐름 (지역 무관) |
+신호는 7개다. high_red는 관광 의존도, 계절 변동성, 경쟁 밀도, 최근 개폐업. low_red는 수요 규모, 유동 수요, 생존 리스크다. D3 시장 트렌드는 신호에 들어가지 않는다.
 
-**신호등 기준**: 같은 업종 내 43개 동 분포의 3분위 (하위 1/3 🟢, 중간 🟡, 상위 1/3 🔴). 수요 규모만 반대 방향.
-
-**종합 점수 (0~100)**
-```
-score = 100 - (w_tour * 관광의존도_pct + w_season * 변동성_pct + w_comp * 경쟁밀도_pct) + w_demand * 수요규모_pct 보정
-```
-- 각 `_pct`는 업종 내 백분위 (0~1)
-- 가중치는 사용자 입력으로 조정
-  - 리스크 성향 '안정형': w_tour, w_season 상향
-  - 주 고객 '관광객': w_tour 하향 (관광 의존이 의도된 전략이므로)
+가용 신호만 가중치를 재정규화하고, low_red는 `(1 − 백분위)`를 위험도로 쓴다. 안정형은 tour +10, season +5, survival +10이다. 관광객 고객은 tour를 max(5, tour − 15)로 낮춘다. 가용 신호가 3개 미만이거나 수요 계열이 없으면 점수는 null이다.
 
 ## 7. Agent 설계
 
@@ -164,7 +139,7 @@ score = 100 - (w_tour * 관광의존도_pct + w_season * 변동성_pct + w_comp 
 ① 의도 파악: 업종·지역·모드(진단/지역추천/업종추천) 추출
    ├─ 누락 → 되묻기 (선택지 제시)
    ↓
-② 계획: 필요한 도구와 순서를 JSON 계획으로 출력 (화면에 표시)
+② 계획: 화면의 단계 상태만 완료로 바꾼다. 계획 JSON은 만들지 않는다. 규칙 루프의 도구 순서는 코드에 고정되어 있다
    ↓
 ③ 도구 실행: function calling 루프 (최대 8회 호출)
    ↓
@@ -177,18 +152,21 @@ score = 100 - (w_tour * 관광의존도_pct + w_season * 변동성_pct + w_comp 
 
 ### 7.3 도구 명세 (`agent/tools.py`)
 
-| Tool | 입력 | 출력 | 단계 |
+| Tool | 입력 | 출력 | 상태 |
 |---|---|---|---|
-| `resolve_place(text)` | "애월", "제주시 노형" | `{dong, candidates[]}` | MVP |
-| `resolve_category(text)` | "카페", "커피숍" | `{app_category, candidates[]}` | MVP |
-| `get_demand(dong, category)` | | 월평균 매출, 관광 비중, 월별 패턴 12개, 연령대 비중 | MVP |
-| `get_supply(dong, category)` | | 점포수, 업종 내 순위 | MVP |
-| `score_risk(dong, category, weights)` | | 지표 4개 값·백분위·신호등, 종합 점수 | MVP |
-| `get_footfall(dong)` | | 거주·근무·방문 월평균 | 목표 |
-| `compare_places(category, dongs?, top_k=3, weights)` | dongs 생략 시 전체 | 순위 표 + 각 지표 | 목표 |
-| `find_gap_category(dong)` | | 수요 대비 공급 부족 업종 Top 5 | 목표 |
-| `get_trend(category)` | | 연도별 소비, 증감률 | 목표 |
-| `render_map(layer, category, highlight[])` | layer: demand / tourism / supply / footfall | UI 지시 (지도 상태) | MVP |
+| `resolve_place(text)` | "애월", "제주시 노형" | `{dong, candidates[]}` | 구현 |
+| `resolve_category(text)` | "카페", "커피숍" | `{app_category, candidates[]}` | 구현 |
+| `get_demand(dong, category)` | | 월평균 매출, 관광 비중, 월별 패턴 | 구현. 연령 비중은 점수에 미사용 |
+| `get_supply(dong, category)` | | 점포수, 업종 내 순위 | 구현 |
+| `get_footfall(dong)` | | 거주·근무·방문 월평균 | 구현. 연령 열 없음 |
+| `get_survival` / `get_recent_openings` | 동, 업종 | 3년 생존율, 24개월 개폐업 | 구현 |
+| `score_risk(dong, category, weights)` | | 신호 7개 값·백분위·신호등, 종합 점수 | 구현 |
+| `compare_places(category, dongs?, top_k=3, weights)` | dongs 생략 시 전체 | 순위 표 | 구현 |
+| `get_dong_vitality(dong)` | | D6 생멸. parquet이 없으면 unavailable | 함수는 있음. 규칙 루프는 호출하지 않음 |
+| `get_tourism_trend` | | D9 입도객. 제출본에는 parquet 없음 | 구현, 데이터 없음 |
+| `find_gap_category(dong)` | | — | `NotImplementedError` |
+| `get_trend(category)` | | — | `NotImplementedError` |
+| `render_map(layer, category, highlight[])` | demand / tourism / supply / footfall / survival | UI 지시 | 구현 |
 
 모든 도구 출력에는 `source`(데이터 ID), `period`(기간), `note`(한계) 필드를 포함한다.
 
@@ -207,17 +185,20 @@ score = 100 - (w_tour * 관광의존도_pct + w_season * 변동성_pct + w_comp 
   "summary": "한 문장 결론",
   "target": {"dong": "애월읍", "category": "카페"},
   "signals": [
-    {"name": "관광 의존도", "value": "74.9%", "level": "red", "reason": "..."},
-    {"name": "계절 변동성", "value": "1.75배", "level": "red", "reason": "..."},
-    {"name": "경쟁 밀도", "value": "...", "level": "yellow", "reason": "..."},
-    {"name": "수요 규모", "value": "업종 내 5위", "level": "green", "reason": "..."}
+    {"name": "관광 의존도", "value": "74.5%", "level": "red", "reason": "...", "as_of": "2021-05"},
+    {"name": "계절 변동성", "value": "1.96배", "level": "yellow", "reason": "..."},
+    {"name": "수요 규모", "value": "업종 내 6위 / 41", "level": "green", "reason": "..."},
+    {"name": "유동 수요", "value": "방문인구 월평균 7,582,178명 (업종 무관, 3위/43)", "level": "green", "reason": "..."},
+    {"name": "경쟁 밀도", "value": "333.20 점포/억원", "level": "yellow", "reason": "..."},
+    {"name": "생존 리스크", "value": "3년 생존율 66.3% (n=261)", "level": "red", "reason": "..."},
+    {"name": "최근 개폐업", "value": "24개월 개업 53/폐업 36 (순증 +17)", "level": "green", "reason": "..."}
   ],
-  "score": 42,
-  "alternatives": [{"dong": "이도2동", "score": 71, "why": "..."}],
-  "trend": "카페 업종 전체 소비 2023년 정점 이후 감소",
+  "score": 50,
+  "alternatives": [{"dong": "이도2동", "score": 82, "why": "..."}],
+  "trend": null,
   "evidence": [{"source": "D1", "period": "2018-01~2019-12", "detail": "..."}],
   "limitations": ["카드사 표본 데이터", "2021년 5월 이후 지역별 데이터 없음"],
-  "map": {"layer": "tourism", "highlight": ["애월읍", "이도2동"]}
+  "map": {"layer": "survival", "highlight": ["애월읍", "이도2동", "일도2동", "화북동"]}
 }
 ```
 
@@ -225,9 +206,9 @@ score = 100 - (w_tour * 관광의존도_pct + w_season * 변동성_pct + w_comp 
 
 | Agent가 스스로 | Agent가 하지 않음 |
 |---|---|
-| 모드 판별, 도구 선택과 순서 결정 | 데이터에 없는 수치 생성 |
-| 대안 지역 탐색과 비교 대상 선정 | 성공 여부 단정 |
-| 표본 부족 시 상위 단위 대체 | 모호한 입력을 추측으로 진행 |
+| 규칙 루프의 고정 도구 순서, Gemini 경로의 도구 선택 | 데이터에 없는 수치 생성 |
+| 빨간 신호 2개 이상일 때 대안 지역 탐색 | 업종 추천 (`category_recommend`는 분류만 되고 규칙 루프는 업종을 되묻는다) |
+| 표본 부족 시 상위 단위 대체 | 모호한 입력을 추측으로 진행, 성공 여부 단정 |
 | 지도 레이어 선택과 강조 지역 지정 | 개인정보 수집 |
 
 ## 8. UI 설계 (React 단일 페이지)
@@ -240,14 +221,14 @@ score = 100 - (w_tour * 관광의존도_pct + w_season * 변동성_pct + w_comp 
 | POST | `/api/diagnose` | 폼 입력 → `run_id` 반환 |
 | GET | `/api/diagnose/{run_id}/events` | SSE: `step`(진행 단계), `tool`(도구 호출·결과 요약), `report`(최종 리포트), `error` |
 | POST | `/api/chat` | 후속 질문 (직전 run 컨텍스트 이어서) |
-| GET | `/api/map/{layer}?category=` | 3D 지도 레이어 데이터 (demand / tourism / supply / footfall) |
+| GET | `/api/map/{layer}?category=` | 3D 지도 레이어 데이터 (demand / tourism / supply / footfall / survival) |
 | GET | `/api/health` | 상태 확인 |
 
 ### 8.1 레이아웃
 ```
 ┌───────────────────────────────────────────────┐
 │ 사이드바: 사전 정보 입력 폼                     │
-│  - 업종 (드롭다운 12~15개)                      │
+│  - 업종 (드롭다운 16개)                         │
 │  - 희망 지역 (드롭다운 43개 + "상관없음")        │
 │  - 주 고객 (관광객 / 도민 / 상관없음)            │
 │  - 타깃 연령 (멀티선택)                         │
@@ -257,9 +238,9 @@ score = 100 - (w_tour * 관광의존도_pct + w_season * 변동성_pct + w_comp 
 │ 메인 상단: Agent 진행 단계 (SSE 실시간)          │
 │  ✓ 의도 파악 → ✓ 계획 → ⟳ 수요 조회 …           │
 ├──────────────────────┬────────────────────────┤
-│ 3D 지도 (pydeck)      │ 진단 카드              │
-│  - 레이어 토글         │  - 결론 한 문장         │
-│  - 월 슬라이더 (목표)  │  - 신호등 4개           │
+│ 3D 지도 (deck.gl)     │ 진단 카드              │
+│  - 레이어 토글 5종     │  - 결론 한 문장         │
+│  - 월 슬라이더         │  - 신호 7개             │
 │  - 2D/3D 전환         │  - 종합 점수            │
 │                      │  - 대안 지역 Top 3      │
 ├──────────────────────┴────────────────────────┤
@@ -273,13 +254,15 @@ score = 100 - (w_tour * 관광의존도_pct + w_season * 변동성_pct + w_comp 
 
 | 레이어 | deck.gl Layer | 높이 | 색 |
 |---|---|---|---|
-| demand (기본) | ColumnLayer (행정동 중심점) | 업종 월평균 매출 | 관광 의존도 (파랑=도민형 → 빨강=관광형) |
-| supply | HexagonLayer (점포 좌표) | 점포 밀도 | 밀도 |
-| footfall | ColumnLayer | 방문인구 | 고정색 |
-| highlight | ScatterplotLayer | – | 대상 지역 테두리 강조 |
+| demand (기본) | ColumnLayer (행정동 중심점) | 업종 월평균 매출 | 관광 의존도 (파랑 → 주황) |
+| tourism | ColumnLayer | 관광 의존도 | 관광 의존도 |
+| supply | ColumnLayer | 점포 수 | 밀도색 |
+| footfall | ColumnLayer | 방문인구 | 밀도색 |
+| survival | ColumnLayer | 점포 수 | `(1 − 3년 생존율)`, 0 파랑 → 1 주황 (RGB 255,120,50) |
+| highlight | 기둥 윤곽 | – | 선택 동을 노란 테두리로 |
 
 - 툴팁: 행정동명, 매출 순위, 관광 비중, 점포수
-- 초기 시점: 제주 전체 (위도 33.38, 경도 126.55, pitch 45)
+- 초기 시점: 제주 전체 (위도 33.38, 경도 126.55, zoom 9, pitch 50, bearing −10)
 - 경계 GeoJSON은 사용하지 않음 (외부 데이터 의존 최소화). 시간 남으면 추가 검토
 
 ## 9. 폴더 구조
@@ -301,7 +284,7 @@ seomjari/                         # GitHub 모노레포 (Python + TypeScript)
 │           ├── App.tsx
 │           ├── api.ts            # fetch + EventSource
 │           ├── types.ts          # 리포트 타입 (schema와 동기화)
-│           └── components/       # DiagnoseForm, ProgressSteps, ReportCard, Map3D, Chat
+│           └── components/       # Entry, ContextPanel, ReportCard, Map3D, ChatPane
 ├── packages/
 │   ├── agent/                    # Python: loop.py, tools.py, prompts.py, llm.py, store.py
 │   ├── pipeline/                 # Python: build_data.py, 업종 매핑표
@@ -318,7 +301,7 @@ seomjari/                         # GitHub 모노레포 (Python + TypeScript)
 
 ## 10. 환경 변수 (`.env.example`)
 ```
-LLM_PROVIDER=openai            # openai | gemini | anthropic
+LLM_PROVIDER=none              # none=규칙 루프. 구현된 외부 공급자는 gemini뿐
 LLM_MODEL=
 LLM_API_KEY=                   # 평가용 키는 사용 한도 설정 후 별도 제출
 AGENT_MAX_TOOL_CALLS=8
@@ -341,17 +324,19 @@ AGENT_MAX_TOOL_CALLS=8
 
 | # | 입력 | 기대 동작 |
 |---|---|---|
-| S1 | 카페 / 애월읍 / 상관없음 / 안정형 | 관광 의존도 🔴, 변동성 🔴 → 대안 탐색 자동 실행 → 도민형 지역 제시 |
-| S2 | 카페 / 상관없음 / 도민 / 균형 | 지역 추천 모드 → Top 3 비교 표 + 지도 강조 |
-| S3 | 자연어 "성산에 뭐 하면 좋을까" | 업종 추천 모드 → 빈틈 업종 Top 5 |
-| S4 | 자연어 "애월에 가게" (업종 없음) | 되묻기: 업종 후보 제시 |
-| S5 | 매핑 없는 업종 (예: "네일샵") | "해당 업종 카드 데이터 없음" + 가능한 업종 안내 (환각 없음 확인) |
+| S1 | 카페 / 애월읍 / 상관없음 / 안정형 | 관광 의존도 🔴, 계절 🟡, 생존 🔴, 점수 50. 대안 이도2동 82 · 일도2동 80 · 화북동 75 |
+| S2 | 카페 / 지역 없음 / 도민 / 균형 | 지역 추천. Top 3는 이도2동 82, 일도2동 81, 화북동 75. 대상 점수는 null |
+| S3 | 자연어 "성산에 뭐 하면 좋을까" | 성산읍으로 해석한 뒤 업종을 되묻는다. 빈틈 업종 추천은 하지 않는다 |
+| S4 | 애월읍, 업종 없음 | `'애월읍' 지역에서 어떤 업종을 검토할지 선택해 주세요.` 리포트 없음 |
+| S5 | 매핑 밖 (예: 자동차 정비소) | 업종을 되묻고 리포트 없음. 네일샵은 매핑된 partial이라 점수 null, 신호 2/7 |
 
 **검증 방법**
 - S1~S5를 고정 입력으로 3회씩 실행해 수치가 동일한지 확인 (재현성)
 - 리포트 속 모든 수치가 도구 출력 로그에 존재하는지 자동 대조 (`tests/test_grounding.py`)
 
-## 13. 일정 (남은 약 33시간)
+## 13. 일정 (작성 당시 계획)
+
+아래 표는 2026-11-19 작성 당시의 일정이다. 출품 시점의 동작은 §3과 `docs/results.md`가 기준이다.
 
 | 시간 | 작업 | 완료 기준 |
 |---|---|---|
@@ -369,9 +354,9 @@ AGENT_MAX_TOOL_CALLS=8
 
 | 리스크 | 대응 |
 |---|---|
-| 데이터 시점이 2021년 5월까지 | 2018~2019 기준 + D3로 2025년 트렌드 보정, 화면에 기간 명시 |
+| 데이터 시점이 2021년 5월까지 | 카드 지표는 2018~2019만 쓰고, 생존·개폐업은 D5(2025-09-02)를 따로 보여 준다. D3는 신호에 넣지 않는다 |
 | 카드사 표본 데이터 | 절대 금액 대신 비중·배율·순위 중심 표시 |
-| 업종 매핑 오류 | 12~15개로 제한, 매핑표를 docs에 공개 |
-| LLM 호출 실패·비용 | 도구 결과만으로 리포트를 만드는 규칙 기반 fallback 모드 |
-| 3D 개발 지연 | ColumnLayer 1종으로 제한, 4시간 넘으면 2D로 전환 |
+| 업종 매핑 오류 | 16개로 제한, 매핑표는 `packages/pipeline/category_map.csv` |
+| LLM 호출 실패·비용 | Gemini 검증 실패나 미구현 공급자는 규칙 루프로 떨어진다 |
+| 3D 개발 지연 | ColumnLayer 5종으로 출품. 2D/3D 전환 버튼이 있다 |
 | 기존 매쉬업(주제8 업종 추천)과 유사성 | 리스크 진단 + 자율 대안 탐색 + 관광/도민 구분을 차별점으로 명시 |
