@@ -56,7 +56,7 @@ class Settings:
             llm_provider=os.getenv("LLM_PROVIDER", "none").lower(),
             llm_model=os.getenv("LLM_MODEL", ""),
             llm_api_key=os.getenv("LLM_API_KEY", ""),
-            agent_max_tool_calls=_env_int("AGENT_MAX_TOOL_CALLS", 8),
+            agent_max_tool_calls=_env_int("AGENT_MAX_TOOL_CALLS", 16),
             llm_timeout_s=_env_float("LLM_TIMEOUT_S", 30.0),
             llm_retries=_env_int("LLM_RETRIES", 2),
             data_dir=data_dir,

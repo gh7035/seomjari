@@ -200,7 +200,7 @@ def chat(q: ChatQuery):
         "category": cat_hint or prev_form.get("category"),
         "dong": place_hint or prev_form.get("dong"),
         "customer": prev_form.get("customer", "any"),
-        "ages": [], "risk": prev_form.get("risk", "balanced"),
+        "ages": prev_form.get("ages") or [], "risk": prev_form.get("risk", "balanced"),
         "question": q.question,
     }
     run_id = uuid.uuid4().hex[:12]

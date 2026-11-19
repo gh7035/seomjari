@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import DeckGL from '@deck.gl/react'
-import { ColumnLayer, PolygonLayer, TextLayer } from '@deck.gl/layers'
+import { ColumnLayer, SolidPolygonLayer, TextLayer } from '@deck.gl/layers'
+import { SimpleMeshLayer } from '@deck.gl/mesh-layers'
 import { AmbientLight, DirectionalLight, LightingEffect } from '@deck.gl/core'
 import { getMapLayer } from '../api'
 import type { MapLayer, MapPoint } from '../types'
-import { JEJU_ISLANDS, type IslandPoly } from './jejuShape'
+import { HALLASAN, JEJU_ANCHOR, JEJU_MESH, JEJU_SEA, reliefZ } from './jejuTerrain'
 
-// 북동쪽에서 내리쬐는 햇빛 + 약한 ambient → 산·기둥에 음영이 생겨 입체감 ↑
+// 북동쪽 햇빛. ambient 를 낮춰 사면 음영이 남게 한다.
 const lighting = new LightingEffect({
-  ambient: new AmbientLight({ color: [255, 255, 255], intensity: 1.0 }),
-  dir1: new DirectionalLight({ color: [255, 240, 220], intensity: 2.0, direction: [-2, -3, -1] }),
-  dir2: new DirectionalLight({ color: [180, 210, 255], intensity: 1.0, direction: [3, 2, -1] }),
+  ambient: new AmbientLight({ color: [255, 255, 255], intensity: 0.55 }),
+  dir1: new DirectionalLight({ color: [255, 236, 210], intensity: 2.2, direction: [-1.4, -2.4, -1.5] }),
+  dir2: new DirectionalLight({ color: [170, 200, 230], intensity: 0.45, direction: [2.2, 1.2, -0.6] }),
 })
 
 const VIEW = { longitude: 126.55, latitude: 33.38, zoom: 9.0, pitch: 50, bearing: -10 }
@@ -80,24 +81,31 @@ export default function Map3D({ layer: initialLayer, category, highlight, month,
   const max = Math.max(1, ...points.map((p) => p.value))
 
   const deckLayers = useMemo(() => [
-    // ① 제주 전체 지형 : 본섬 해안선 + 한라산 중심 동심 계단 → 단일 색상, 3D 돔 형태
-    new PolygonLayer<IslandPoly>({
-      id: 'jeju-land',
-      data: JEJU_ISLANDS,
-      getPolygon: (d) => d.coords,
-      extruded: true,
-      wireframe: false,
-      getElevation: (d) => d.elevation * 8, // 세로 과장 (몰입감)
-      getFillColor: [38, 52, 72, 255],       // 단일 톤 (슬레이트 블루 그레이)
+    new SolidPolygonLayer({
+      id: 'jeju-sea',
+      data: [{ polygon: JEJU_SEA }],
+      getPolygon: (d) => d.polygon,
+      _full3d: true,
+      extruded: false,
       stroked: false,
+      filled: true,
+      getFillColor: [6, 32, 52, 255],
       pickable: false,
-      material: { ambient: 0.5, diffuse: 0.95, shininess: 20, specularColor: [90, 110, 140] },
+      material: false,
     }),
-    // 한라산 라벨 (최정상 위에 표시)
+    new SimpleMeshLayer({
+      id: 'jeju-terrain',
+      data: [0],
+      mesh: JEJU_MESH,
+      getPosition: JEJU_ANCHOR,
+      getColor: [255, 255, 255, 255],
+      pickable: false,
+      material: { ambient: 0.38, diffuse: 0.9, shininess: 4, specularColor: [20, 28, 22] },
+    }),
     new TextLayer({
       id: 'hallasan-label',
-      data: [{ lon: 126.5325, lat: 33.3617, z: 1947 * 8 + 500 }],
-      getPosition: (d: any) => [d.lon, d.lat, d.z],
+      data: [{ lon: HALLASAN.lon, lat: HALLASAN.lat, z: reliefZ(HALLASAN.lon, HALLASAN.lat) + 420 }],
+      getPosition: (d: { lon: number; lat: number; z: number }) => [d.lon, d.lat, d.z],
       getText: () => '한라산 고도 1947m',
       getSize: 11,
       getColor: [220, 230, 240, 230],
@@ -120,7 +128,7 @@ export default function Map3D({ layer: initialLayer, category, highlight, month,
         const p = info.object as MapPoint | undefined
         if (p && onSelectDong) onSelectDong({ dong: p.dong, lon: p.lon, lat: p.lat })
       },
-      getPosition: (p) => [p.lon, p.lat, 220], // 땅 위에 올림
+      getPosition: (p) => [p.lon, p.lat, Math.max(0, reliefZ(p.lon, p.lat)) + 160],
       getElevation: (p) => (p.value / max) * 26000,
       getFillColor: (p) => {
         if (highlight.includes(p.dong)) return [255, 210, 60]

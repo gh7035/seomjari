@@ -17,6 +17,57 @@ install_docker() {
   sudo systemctl enable --now docker
 }
 
+install_nginx() {
+  if ! command -v nginx >/dev/null 2>&1 || ! command -v certbot >/dev/null 2>&1; then
+    sudo DEBIAN_FRONTEND=noninteractive apt-get update
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nginx certbot python3-certbot-nginx
+  fi
+  sudo mkdir -p /etc/systemd/system/nginx.service.d /etc/nginx/snippets
+  sudo tee /etc/systemd/system/nginx.service.d/memory.conf >/dev/null <<'EOF'
+[Service]
+MemoryMax=128M
+EOF
+  sudo systemctl daemon-reload
+  sudo systemctl enable nginx
+  if [[ ! -f /etc/nginx/snippets/seomjari-upstream.conf ]]; then
+    point_nginx blue
+  fi
+  if [[ ! -f /etc/nginx/sites-available/seomjari ]]; then
+    sudo cp deploy/nginx/seomjari.conf /etc/nginx/sites-available/seomjari
+  fi
+  sudo ln -sfn /etc/nginx/sites-available/seomjari /etc/nginx/sites-enabled/seomjari
+  sudo rm -f /etc/nginx/sites-enabled/default
+}
+
+point_nginx() {
+  local color=$1
+  local port=8001
+  [[ "$color" == "green" ]] && port=8002
+  sudo mkdir -p /etc/nginx/snippets
+  sudo tee /etc/nginx/snippets/seomjari-upstream.conf >/dev/null <<EOF
+proxy_pass http://127.0.0.1:${port};
+proxy_http_version 1.1;
+proxy_set_header Host \$host;
+proxy_set_header X-Real-IP \$remote_addr;
+proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto \$scheme;
+proxy_buffering off;
+proxy_request_buffering off;
+proxy_read_timeout 300s;
+EOF
+  sudo nginx -t
+  sudo systemctl reload nginx
+}
+
+ensure_cert() {
+  local domain=$1
+  if [[ -f "/etc/letsencrypt/live/${domain}/fullchain.pem" ]]; then
+    return
+  fi
+  sudo certbot --nginx -d "$domain" --non-interactive --agree-tos \
+    --register-unsafely-without-email --redirect
+}
+
 if [[ -f "$SRC_TAR" ]]; then
   sudo mkdir -p "$APP_DIR"
   sudo chown "$(id -u):$(id -g)" "$APP_DIR"
@@ -60,7 +111,7 @@ cat > deploy/mem.env <<EOF
 APP_MEM_LIMIT=${app_mb}m
 CADDY_MEM_LIMIT=64m
 EOF
-echo "메모리 한도: 앱 ${app_mb}m x 2슬롯, caddy 64m (호스트 MemTotal $((total_kb / 1024))m)"
+echo "메모리 한도: 앱 ${app_mb}m x 2슬롯, nginx 128m (호스트 MemTotal $((total_kb / 1024))m)"
 
 if [[ -f "$IMG_TAR" ]]; then
   gunzip -c "$IMG_TAR" | "${DOCKER[@]}" load
@@ -87,15 +138,36 @@ fi
 
 avail_kb=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)
 need_kb=$((app_kb + 96 * 1024))
+low_mem=0
 if ((avail_kb < need_kb)); then
-  echo "가용 메모리가 $((avail_kb / 1024))m 입니다. 새 컨테이너에 $((need_kb / 1024))m 이 필요해 기존 서비스를 유지하고 중단합니다." >&2
-  exit 1
+  if [[ "$active" == "none" ]]; then
+    echo "가용 메모리가 $((avail_kb / 1024))m 입니다. 새 컨테이너에 $((need_kb / 1024))m 이 필요해 중단합니다." >&2
+    exit 1
+  fi
+  echo "가용 메모리가 $((avail_kb / 1024))m 입니다. 기존 슬롯을 잠시 멈추고 교체합니다."
+  low_mem=1
 fi
 
 COMPOSE=("${DOCKER[@]}" compose --env-file deploy/site.env --env-file deploy/mem.env)
 
-"${COMPOSE[@]}" up -d caddy
-"${COMPOSE[@]}" up -d --no-deps --force-recreate --no-build "$next"
+restore_active() {
+  if [[ "$low_mem" == 1 && "$active" != "none" ]]; then
+    "${DOCKER[@]}" start "seomjari-${active}" >/dev/null || true
+  fi
+}
+
+"${DOCKER[@]}" rm -f seomjari-caddy >/dev/null 2>&1 || true
+install_nginx
+point_nginx "${active:-blue}"
+if [[ "$low_mem" == 1 ]]; then
+  "${DOCKER[@]}" stop "seomjari-${active}" >/dev/null
+fi
+
+if ! "${COMPOSE[@]}" up -d --no-deps --force-recreate --no-build "$next"; then
+  echo "새 컨테이너를 시작하지 못했습니다. 기존 슬롯을 유지합니다." >&2
+  restore_active
+  exit 1
+fi
 
 container="seomjari-${next}"
 healthy=0
@@ -115,35 +187,36 @@ if [[ "$healthy" != 1 ]]; then
   echo "새 컨테이너가 준비되지 않았습니다. 기존 슬롯을 유지합니다." >&2
   "${DOCKER[@]}" logs --tail 80 "$container" >&2 || true
   "${COMPOSE[@]}" stop "$next" || true
+  restore_active
   exit 1
 fi
 
-printf 'reverse_proxy %s:8000\n' "$next" > deploy/upstream.caddy
-reloaded=0
-for _ in $(seq 1 5); do
-  if "${DOCKER[@]}" exec seomjari-caddy caddy reload --config /etc/caddy/Caddyfile; then
-    reloaded=1
-    break
-  fi
-  sleep 2
-done
-if [[ "$reloaded" != 1 ]]; then
+if ! point_nginx "$next"; then
   echo "프록시 재적재에 실패했습니다. 새 컨테이너를 내리고 기존 슬롯을 유지합니다." >&2
   "${COMPOSE[@]}" stop "$next" || true
+  restore_active
   if [[ "$active" != "none" ]]; then
-    printf 'reverse_proxy %s:8000\n' "$active" > deploy/upstream.caddy
+    point_nginx "$active" || true
   fi
   exit 1
+fi
+domain=$(awk -F= '/^SITE_ADDRESS=/{print $2}' deploy/site.env)
+if [[ "$domain" == *.* ]]; then
+  ensure_cert "$domain"
 fi
 
 if [[ "$active" != "none" && "$active" != "$next" ]]; then
   old="seomjari-${active}"
-  for _ in $(seq 1 45); do
-    open=$("${DOCKER[@]}" exec "$old" cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | awk '$4=="01" { split($2,a,":"); if (tolower(a[2])=="1f40") c++ } END { print c+0 }' || echo 0)
-    [[ "${open:-0}" == "0" ]] && break
-    sleep 2
-  done
-  "${COMPOSE[@]}" stop "$active"
+  if [[ "$low_mem" == 1 ]]; then
+    "${DOCKER[@]}" update --restart=no "$old" >/dev/null || true
+  else
+    for _ in $(seq 1 45); do
+      open=$("${DOCKER[@]}" exec "$old" cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | awk '$4=="01" { split($2,a,":"); if (tolower(a[2])=="1f40") c++ } END { print c+0 }' || echo 0)
+      [[ "${open:-0}" == "0" ]] && break
+      sleep 2
+    done
+    "${COMPOSE[@]}" stop "$active"
+  fi
 fi
 
 echo "$next" > deploy/active

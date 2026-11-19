@@ -162,7 +162,7 @@
 | `get_survival` / `get_recent_openings` | 동, 업종 | 3년 생존율, 24개월 개폐업 | 구현 |
 | `score_risk(dong, category, weights)` | | 신호 7개 값·백분위·신호등, 종합 점수 | 구현 |
 | `compare_places(category, dongs?, top_k=3, weights)` | dongs 생략 시 전체 | 순위 표 | 구현 |
-| `get_dong_vitality(dong)` | | D6 생멸. parquet이 없으면 unavailable | 함수는 있음. 규칙 루프는 호출하지 않음 |
+| `get_dong_vitality(dong)` | | D6 생멸. 순증이 있는 가장 최근 연도를 근거로 쓴다 | 규칙 루프가 호출한다. 종합 점수 가중치에는 넣지 않음 |
 | `get_tourism_trend` | | D9 입도객. 제출본에는 parquet 없음 | 구현, 데이터 없음 |
 | `find_gap_category(dong)` | | 수요 대비 점포가 적은 업종 | 구현 |
 | `get_trend(category)` | | 2018 대비 최근 연도 증감 | 구현. 지역 점수에는 미포함 |
@@ -171,13 +171,10 @@
 모든 도구 출력에는 `source`(데이터 ID), `period`(기간), `note`(한계) 필드를 포함한다.
 
 ### 7.4 시스템 프롬프트 요지 (`agent/prompts.py`)
-- 너는 제주 창업 입지 분석가다
-- 모든 숫자는 도구 결과에서만 인용한다. 계산이 필요하면 도구를 호출한다
-- "성공", "확실" 같은 단정 표현 금지. "데이터상 유리/불리"로 표현
-- 리포트에는 반드시 데이터 기간과 한계를 포함한다
-- 업종이나 지역이 모호하면 추측하지 말고 후보를 제시해 되묻는다
-- 🔴가 2개 이상이면 대안 지역을 탐색한다
-- 최종 출력은 지정된 JSON 스키마를 따른다
+- 도구 실행과 점수·신호는 서버가 끝낸 뒤, 모델은 `summary`와 `alternatives[].why`만 쓴다
+- 숫자는 서버 JSON에 있는 값만 인용한다. 점수와 신호를 다시 계산하지 않는다
+- "성공", "확실" 같은 단정 표현 금지
+- 지역·업종이 정해진 진단에서는 도구를 고르지 않는다
 
 ### 7.5 리포트 JSON 스키마
 ```json
@@ -188,7 +185,7 @@
     {"name": "관광 의존도", "value": "74.5%", "level": "red", "reason": "...", "as_of": "2018-01~2019-12"},
     {"name": "계절 변동성", "value": "1.96배", "level": "yellow", "reason": "..."},
     {"name": "수요 규모", "value": "업종 내 6위 / 41", "level": "green", "reason": "..."},
-    {"name": "유동 수요", "value": "3위/43 (업종 무관 참고 7,582,178명)", "level": "green", "reason": "..."},
+    {"name": "유동 수요", "value": "3위/43 (업종 무관 참고 7,632,789명)", "level": "green", "reason": "...", "as_of": "2018-01~2019-12"},
     {"name": "경쟁 밀도", "value": "225개 점포 (1위/43)", "level": "red", "reason": "점수는 점포수 백분위. 333.20 점포/억원은 참고"},
     {"name": "생존 리스크", "value": "3년 생존율 66.3% (n=261)", "level": "red", "reason": "..."},
     {"name": "최근 개폐업", "value": "24개월 개업 53/폐업 36 (순증 +17)", "level": "green", "reason": "..."}

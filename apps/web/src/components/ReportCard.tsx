@@ -37,7 +37,7 @@ export default function ReportCard({ report }: { report: Report | null }) {
   return (
     <div>
       <h3 style={{ marginTop: 0, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-        {isPartial && <span className="partial-badge">부분 진단</span>}
+        {isPartial && <span className="partial-badge">제한 분석</span>}
         <span>{report.target.dong ?? '—'} · {report.target.category ?? '—'}</span>
       </h3>
       {isPartial && summaryHead && (
@@ -91,12 +91,22 @@ export default function ReportCard({ report }: { report: Report | null }) {
         <div className="alts" data-tour="alts">
           <h4>{report.focus === 'gap' ? '빈틈 업종' : `대안 지역 Top ${report.alternatives.length}`}</h4>
           <ul>
-            {report.alternatives.map((a) => (
-              <li key={a.dong}>
-                <b>{a.dong}</b> <span className="alt-score">{a.score}점</span>
-                <div className="alt-why">{a.why}</div>
-              </li>
-            ))}
+            {report.alternatives.map((a) => {
+              const here = (name: string) => {
+                const s = signals.find((x) => x.name === name && x.level !== 'unavailable')
+                return s?.value
+              }
+              const tourHere = here('관광 의존도')
+              const survHere = here('생존 리스크')
+              return (
+                <li key={a.dong}>
+                  <b>{a.dong}</b> <span className="alt-score">{a.score}점</span>
+                  {a.tour_value && tourHere && <div className="alt-why">관광 {tourHere} → {a.tour_value}</div>}
+                  {a.survival_value && survHere && <div className="alt-why">생존 {survHere} → {a.survival_value}</div>}
+                  <div className="alt-why">{a.why}</div>
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}
@@ -105,20 +115,21 @@ export default function ReportCard({ report }: { report: Report | null }) {
         <div className="trend-line">업종 트렌드 · {report.trend}</div>
       )}
 
-      {report.mode === 'llm_fallback' && (
-        <p className="llm-fallback-note">※ LLM 오류로 규칙 기반으로 재생성된 리포트입니다.</p>
+      {report.narrative === 'rule' && (
+        <p className="llm-fallback-note">문장은 규칙으로 작성.</p>
       )}
 
       <details className="evidence" data-tour="evidence">
         <summary>근거와 한계 펼치기</summary>
 
         {chartData.length > 0 && (
-          <div style={{ height: 200, marginTop: 12 }}>
+          <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 12, color: '#57606a', marginBottom: 4 }}>
               월별 매출 패턴 (전체 vs 관광객)
             </div>
+            <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+              <LineChart data={chartData} margin={{ top: 4, right: 12, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e3e6ea" />
                 <XAxis dataKey="month" fontSize={11} />
                 <YAxis fontSize={11} tickFormatter={(v) => `${Math.round(v / 10000)}만`} />
@@ -128,6 +139,7 @@ export default function ReportCard({ report }: { report: Report | null }) {
                 <Line type="monotone" dataKey="관광" stroke="#b42318" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </div>
         )}
 

@@ -374,7 +374,9 @@ def get_demand(dong: str, category: str) -> dict[str, Any]:
     tourism_ratio = tourism / total if total else 0.0
     local_ratio = local / total if total else 0.0
     sub = sub.assign(month=sub["년월"].str[5:7].astype(int))
+    sub["관광금액"] = sub["이용금액_관광개별"] + sub["이용금액_관광단체"]
     pattern = (sub.groupby("month")["이용금액_합계"].mean().reindex(range(1, 13)))
+    tourism_pattern = (sub.groupby("month")["관광금액"].mean().reindex(range(1, 13)))
     season_ratio = (float(pattern.max() / pattern.min())
                     if pattern.notna().any() and pattern.min() > 0 else None)
     age_df = store.table("demand_age")
@@ -391,6 +393,9 @@ def get_demand(dong: str, category: str) -> dict[str, Any]:
         "low_month": int(pattern.idxmin()) if pattern.notna().any() else None,
         "season_ratio": round(season_ratio, 3) if season_ratio else None,
         "monthly_pattern": {int(k): round(float(v)) for k, v in pattern.dropna().items()},
+        "monthly_tourism_pattern": {
+            int(k): round(float(v)) for k, v in tourism_pattern.dropna().items()
+        },
         "age_breakdown": age_breakdown,
         "source": "D1", "period": BASE_PERIOD, "as_of": _as_of("D1"),
         "note": "카드사 표본 — 비중·배율 중심 해석 권장",
@@ -688,14 +693,20 @@ def compare_places(category: str, dongs: list[str] | None = None, top_k: int = 3
             continue
         r = score_risk(name, category, weights, context=context)
         if r.get("available"):
-            rows.append({"dong": name,
-                         "score": r.get("score"),               # None 가능
-                         "confidence": r.get("confidence", "normal"),
-                         "confidence_reason": r.get("confidence_reason"),
-                         "active_signals": r.get("active_signals"),
-                         "total_signals": r.get("total_signals"),
-                         "signals": {s["name"]: s["level"] for s in r["signals"]},
-                         "mode": r.get("mode", "full")})
+            by_name = {s["name"]: s for s in r["signals"]}
+            row = {"dong": name,
+                   "score": r.get("score"),               # None 가능
+                   "confidence": r.get("confidence", "normal"),
+                   "confidence_reason": r.get("confidence_reason"),
+                   "active_signals": r.get("active_signals"),
+                   "total_signals": r.get("total_signals"),
+                   "signals": {s["name"]: s["level"] for s in r["signals"]},
+                   "mode": r.get("mode", "full")}
+            for key, sig_name in (("tour_value", "관광 의존도"), ("survival_value", "생존 리스크")):
+                sig = by_name.get(sig_name) or {}
+                if sig.get("level") not in (None, "unavailable") and sig.get("value"):
+                    row[key] = sig["value"]
+            rows.append(row)
     # 점수 있는 것 우선 + 내림차순, 점수 없는 것은 뒤로
     rows.sort(key=lambda r: (r.get("score") is None, -(r.get("score") or 0)))
     return {"category": category, "available": True,
@@ -765,17 +776,17 @@ def get_trend(category: str) -> dict[str, Any]:
 
 
 def get_footfall(dong: str, ages: list[str] | None = None) -> dict[str, Any]:
-    """D2 유동인구. 업종 무관. 연령 필터는 D2에 연령 컬럼이 있을 때만."""
+    """D2 유동인구. 수요와 같은 2018-01~2019-12 평균. 업종 무관."""
     if not store.has_optional("footfall_monthly"):
         return {"dong": dong, "available": False, "source": "D2",
-                "period": "", "as_of": _as_of("D2"), "note": "D2 미빌드"}
-    foot = store.table("footfall_monthly")
+                "period": "", "as_of": BASE_PERIOD, "note": "D2 미빌드"}
+    foot = _base_slice(store.table("footfall_monthly"))
     if ages and "연령대" in foot.columns:
-        foot = foot[foot["연령대"].isin(ages)]
+        foot = foot[foot["연령대"].astype(str).isin([str(a) for a in ages])]
     means = foot.groupby("dong")["방문인구"].mean()
     if dong not in means.index:
         return {"dong": dong, "available": False, "source": "D2",
-                "period": "", "as_of": _as_of("D2"),
+                "period": BASE_PERIOD, "as_of": BASE_PERIOD,
                 "note": "해당 행정동 유동인구 없음"}
     visit = float(means.loc[dong])
     rank = int((means > visit).sum() + 1)
@@ -785,8 +796,8 @@ def get_footfall(dong: str, ages: list[str] | None = None) -> dict[str, Any]:
             "거주인구_월평균": round(float(foot[foot["dong"] == dong]["거주인구"].mean())),
             "근무인구_월평균": round(float(foot[foot["dong"] == dong]["근무인구"].mean())),
             "rank": rank, "of": int(len(means)),
-            "source": "D2", "period": "2017-01~2021-05",
-            "as_of": _as_of("D2"),
+            "source": "D2", "period": BASE_PERIOD,
+            "as_of": BASE_PERIOD,
             "note": ("D2 월평균 · 연령 적용" if age_applied
                      else "D2 월평균 · 연령 미적용" if ages
                      else "D2 월평균 · 업종 무관")}

@@ -99,7 +99,7 @@ data/processed/ (parquet)
 | 관광 의존도 | tour | high_red | (관광개별+관광단체)/합계 |
 | 계절 변동성 | season | high_red | 월별 2년 평균 패턴의 max/min |
 | 수요 규모 | demand | low_red | 기준 기간 월평균 이용금액의 업종 내 순위 |
-| 유동 수요 | footfall | low_red | D2 방문인구 월평균 (업종 무관) |
+| 유동 수요 | footfall | low_red | D2 방문인구 월평균. 수요와 같은 2018-01~2019-12. 업종 무관. 데이터셋 종료 2021-05는 한계 문장 |
 | 경쟁 밀도 | comp | high_red | 점수에는 D4 점포수 백분위. 점포/억원 비율은 시점(2025-09 / 2018-01~2019-12)을 적어 사유에만 둔다 |
 | 생존 리스크 | survival | low_red | D5 3년 생존율 (중도절단, n<10이면 시군구 대체) |
 | 최근 개폐업 | churn | high_red | D5 최근 24개월 폐업/개업 |

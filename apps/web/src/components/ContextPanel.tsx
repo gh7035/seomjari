@@ -27,8 +27,7 @@ export default function ContextPanel({ meta, form, disabled, onApply }: {
   const toggleAge = (a: string) =>
     setF({ ...f, ages: f.ages.includes(a) ? f.ages.filter((x) => x !== a) : [...f.ages, a] })
 
-  const missingCount =
-    (f.category ? 0 : 1) + (f.dong ? 0 : 1) + (f.customer === 'any' ? 1 : 0) + (f.ages.length === 0 ? 1 : 0)
+  const missingCount = (f.category ? 0 : 1) + (f.dong ? 0 : 1)
 
   return (
     <div className="ctx" data-tour="ctx-form">
@@ -65,7 +64,7 @@ export default function ContextPanel({ meta, form, disabled, onApply }: {
           </select>
         </Field>
 
-        <Field label="주 고객" missing={f.customer === 'any'}>
+        <Field label="주 고객" missing={false}>
           <select
             value={f.customer}
             onChange={(e) => setF({ ...f, customer: e.target.value as DiagnoseForm['customer'] })}
@@ -76,7 +75,8 @@ export default function ContextPanel({ meta, form, disabled, onApply }: {
           </select>
         </Field>
 
-        <Field label="연령대" missing={f.ages.length === 0}>
+        <Field label="연령대" missing={false}>
+          <div className="ctx-note">수요 순위에만 반영. 유동에는 연령이 없음</div>
           <div className="ctx-age-chips">
             {AGES.map((a) => {
               const on = f.ages.includes(a)

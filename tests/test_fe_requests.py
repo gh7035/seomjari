@@ -63,8 +63,33 @@ def test_report_contains_monthly_pattern_when_demand_available(client):
             assert "monthly_pattern" in r, "report에 monthly_pattern 없음"
             assert len(r["monthly_pattern"]["values"]) == 12
             assert len(r["monthly_pattern"]["labels"]) == 12
+            assert len(r["monthly_pattern"]["tourism_values"]) == 12
+            assert sum(r["monthly_pattern"]["tourism_values"]) > 0
             return
     raise AssertionError("report 이벤트 없음")
+
+
+def test_chat_keeps_ages_and_demand_reason(client):
+    """20대를 고른 뒤 다른 지역을 물으면 수요 사유에 20대가 남는다."""
+    import json
+    first = client.post("/api/diagnose", json={
+        "category": "카페", "dong": "애월읍", "customer": "any",
+        "ages": ["20대"], "risk": "safe",
+    }).json()["run_id"]
+    followed = client.post("/api/chat", json={"run_id": first, "question": "한림읍은?"})
+    assert followed.status_code == 200
+    body = followed.json()
+    assert body["parsed"]["dong"] == "한림읍"
+    run_id = body["run_id"]
+    with client.stream("GET", f"/api/diagnose/{run_id}/events") as resp:
+        text = "".join(resp.iter_text())
+    report = None
+    for line in text.splitlines():
+        if line.startswith("data:") and '"type": "report"' in line:
+            report = json.loads(line[6:])["report"]
+    assert report is not None
+    demand = next(s for s in report["signals"] if s["name"] == "수요 규모")
+    assert "20대" in demand["reason"]
 
 
 # ---- 6) /api/stores ----

@@ -151,13 +151,20 @@ def compute_season(dong: str, category: str, spec: SignalSpec, _ctx: dict) -> di
     if cat.empty or dong not in cat["dong"].unique():
         return _unavailable(spec, "D1에 해당 지역·업종 카드 데이터 없음")
     c2 = cat.assign(m=cat["년월"].str[5:7].astype(int))
-    ser = (c2.groupby(["dong", "m"])["이용금액_합계"].mean()
-           .groupby(level=0).agg(lambda s: s.max() / s.min() if s.min() > 0 else None))
+    monthly = c2.groupby(["dong", "m"])["이용금액_합계"].mean()
+    ser = monthly.groupby(level=0).agg(lambda s: s.max() / s.min() if s.min() > 0 else None)
     if dong not in ser.index or pd.isna(ser.loc[dong]):
         return _unavailable(spec, "월별 분포 계산 불가")
     v = float(ser.loc[dong])
     p = _percentile(v, ser)
-    return {"name": spec.name, "value": f"{v:.2f}배",
+    value = f"{v:.2f}배"
+    try:
+        dong_months = monthly.xs(dong, level=0).dropna()
+        if len(dong_months) >= 2 and float(dong_months.min()) > 0:
+            value = f"{int(dong_months.idxmax())}월/{int(dong_months.idxmin())}월 {v:.2f}배"
+    except (KeyError, ValueError, TypeError):
+        pass
+    return {"name": spec.name, "value": value,
             "level": _level_from_pct(p, spec.direction),
             "percentile": round(p, 3),
             "reason": "최고월/최저월 매출 비율",
@@ -200,13 +207,13 @@ def compute_demand(dong: str, category: str, spec: SignalSpec, ctx: dict) -> dic
 
 
 def compute_footfall(dong: str, _category: str, spec: SignalSpec, ctx: dict) -> dict:
-    """D2 방문인구. 업종 무관. constraints.ages가 있고 D2에 연령 컬럼이 있으면 필터링."""
+    """D2 방문인구. 수요와 같은 2018-01~2019-12. 업종 무관."""
     if not store.has_optional("footfall_monthly"):
         return _unavailable(spec, "D2 유동인구 데이터 없음")
-    foot = store.table("footfall_monthly")
-    ages = ctx.get("ages") or []
+    foot = _base_slice(store.table("footfall_monthly"))
+    ages = [str(a) for a in (ctx.get("ages") or [])]
     if ages and "연령대" in foot.columns:
-        foot = foot[foot["연령대"].isin(ages)]
+        foot = foot[foot["연령대"].astype(str).isin(ages)]
     g = foot.groupby("dong")["방문인구"].mean()
     if dong not in g.index:
         return _unavailable(spec, "해당 행정동 유동인구 데이터 없음")
@@ -224,7 +231,7 @@ def compute_footfall(dong: str, _category: str, spec: SignalSpec, ctx: dict) -> 
             "level": _level_from_pct(p, spec.direction),
             "percentile": round(p, 3),
             "reason": f"D2 방문인구 월평균{age_note}",
-            "as_of": _registry_as_of("D2"), "spec": spec, "raw": v}
+            "as_of": ANALYSIS_WINDOW, "spec": spec, "raw": v}
 
 
 def compute_comp(dong: str, category: str, spec: SignalSpec, _ctx: dict) -> dict:

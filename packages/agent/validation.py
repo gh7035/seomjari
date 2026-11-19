@@ -95,6 +95,9 @@ def validate_report_shape(report: Any) -> list[str]:
 _NUM_PATTERNS = [
     r"\d+\.\d+%", r"\d+%", r"\d+\.\d+배", r"\d+배",
     r"\d+(?:,\d{3})+원", r"\d{4,}원", r"\d+위", r"\d+/\d+",
+    r"\d+점",
+    r"순증\s*[+-]?\d+",
+    r"\d{1,2}월",
 ]
 
 

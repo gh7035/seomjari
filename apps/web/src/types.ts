@@ -2,7 +2,7 @@
 
 export type Level = 'green' | 'yellow' | 'red' | 'unavailable'
 export type MapLayer = 'demand' | 'tourism' | 'supply' | 'footfall' | 'survival'
-export type ReportMode = 'llm' | 'fallback' | 'partial' | 'llm_fallback'
+export type ReportMode = 'full' | 'llm' | 'fallback' | 'partial' | 'llm_fallback'
 export type EvidenceSource = 'D1' | 'D2' | 'D3' | 'D4' | 'D5' | 'D6' | 'D9' | 'D10'
 
 export interface Signal {
@@ -13,7 +13,13 @@ export interface Signal {
   as_of?: string
   percentile?: number
 }
-export interface Alternative { dong: string; score: number; why: string }
+export interface Alternative {
+  dong: string
+  score: number
+  why: string
+  tour_value?: string
+  survival_value?: string
+}
 export interface Evidence { source: EvidenceSource; period: string; detail: string }
 
 export interface MonthlyPattern { labels: string[]; values: number[]; tourism_values?: number[] }
@@ -31,6 +37,7 @@ export interface Report {
   focus?: 'gap'
   monthly_pattern?: MonthlyPattern
   mode?: ReportMode
+  narrative?: 'rule' | 'model'
 }
 
 export interface DiagnoseForm {

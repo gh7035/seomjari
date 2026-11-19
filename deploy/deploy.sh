@@ -41,7 +41,7 @@ fi
 
 if docker info >/dev/null 2>&1; then
   echo "로컬 Docker 로 이미지를 만들어 올립니다."
-  docker build -t seomjari:app "$ROOT"
+  docker build --platform "${DEPLOY_PLATFORM:-linux/amd64}" -t seomjari:app "$ROOT"
   IMG=$(mktemp /tmp/seomjari-app.XXXXXX.tar.gz)
   docker save seomjari:app | gzip > "$IMG"
   "${SCP[@]}" "$IMG" "${HOST}:seomjari-incoming/seomjari-app.tar.gz"
