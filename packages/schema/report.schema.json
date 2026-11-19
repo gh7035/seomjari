@@ -19,14 +19,46 @@
         "type": "object",
         "required": ["name", "value", "level", "reason"],
         "properties": {
-          "name": { "enum": ["관광 의존도", "계절 변동성", "경쟁 밀도", "수요 규모"] },
+          "name": {
+            "enum": [
+              "관광 의존도", "계절 변동성", "경쟁 밀도", "수요 규모",
+              "유동 수요", "생존 리스크", "최근 개폐업"
+            ]
+          },
           "value": { "type": "string" },
-          "level": { "enum": ["green", "yellow", "red"] },
-          "reason": { "type": "string" }
+          "level": { "enum": ["green", "yellow", "red", "unavailable"] },
+          "reason": { "type": "string" },
+          "as_of": { "type": "string" }
         }
       }
     },
-    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "mode": { "enum": ["full", "partial", "llm", "fallback", "llm_fallback"] },
+    "confidence": { "enum": ["normal", "low"] },
+    "active_signals": { "type": "integer" },
+    "total_signals": { "type": "integer" },
+    "form_applied": {
+      "type": "object",
+      "properties": {
+        "category": { "type": ["string", "null"] },
+        "dong": { "type": ["string", "null"] },
+        "customer": { "type": "string" },
+        "ages": { "type": "array", "items": { "type": "string" } },
+        "risk": { "type": "string" }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "ages": { "type": "array", "items": { "type": "string" } },
+        "customer": { "type": "string" }
+      }
+    },
+    "score": {
+      "oneOf": [
+        { "type": "number", "minimum": 0, "maximum": 100 },
+        { "type": "null" }
+      ]
+    },
     "alternatives": {
       "type": "array",
       "items": {
@@ -46,7 +78,7 @@
         "type": "object",
         "required": ["source", "period", "detail"],
         "properties": {
-          "source": { "enum": ["D1", "D2", "D3", "D4"] },
+          "source": { "enum": ["D1", "D2", "D3", "D4", "D5", "D6", "D9", "D10"] },
           "period": { "type": "string" },
           "detail": { "type": "string" }
         }
@@ -57,7 +89,7 @@
       "type": "object",
       "required": ["layer", "highlight"],
       "properties": {
-        "layer": { "enum": ["demand", "tourism", "supply", "footfall"] },
+        "layer": { "enum": ["demand", "tourism", "supply", "footfall", "survival"] },
         "highlight": { "type": "array", "items": { "type": "string" } }
       }
     }
