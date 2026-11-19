@@ -1,0 +1,6 @@
+# SITE_ADDRESS 가 :80 이면 IP·도메인 모두 HTTP.
+# 도메인을 넣으면 Caddy 가 80/443 과 인증서를 처리한다.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	import /etc/caddy/upstream.caddy
+}

@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>섬자리 — 제주 창업 입지 진단 AI Agent 기획서</title>
+<style>
+  :root {
+    --ink: #1C2420;
+    --muted: #5C6560;
+    --faint: #8A8478;
+    --paper: #F6F3EC;
+    --card: #FBF9F4;
+    --pine: #173832;
+    --pine-2: #24564C;
+    --clay: #C24E2C;
+    --line: #DDD6C8;
+    --line-strong: #C9C1B2;
+    --green: #1F6B45;
+    --green-bg: #E7F2EB;
+    --amber: #8A6414;
+    --amber-bg: #F8F0DC;
+    --red: #9C3A32;
+    --red-bg: #F8E8E5;
+    --gray-bg: #EEEAE2;
+  }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { size: A4; margin: 0; }
+  html, body {
+    margin: 0; padding: 0;
+    background: white;
+    color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 9.15pt;
+    line-height: 1.48;
+    font-feature-settings: "tnum" 1;
+    word-break: keep-all;
+  }
+  .sheet {
+    width: 210mm;
+    height: 297mm;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+  }
+  .sheet:last-child { page-break-after: auto; }
+
+  /* ---------- cover ---------- */
+  .cover {
+    background: var(--pine);
+    color: #F3EFE6;
+    padding: 16mm 15mm 13mm;
+  }
+  .cover-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 8pt;
+    letter-spacing: 0.04em;
+    color: #D5E4DF;
+  }
+  .cover-top b { color: #F3EFE6; font-weight: 600; }
+  .wordmark {
+    font-family: "Nanum Myeongjo", "AppleMyungjo", "Apple SD Gothic Neo", serif;
+    font-size: 46pt;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin: 11mm 0 0;
+  }
+  .cover h1 {
+    font-size: 15.5pt;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.35;
+    margin: 4mm 0 0;
+    max-width: 150mm;
+  }
+  .cover h1 em {
+    font-style: normal;
+    color: #F0C2AE;
+  }
+  .cover-by {
+    margin-top: 3.5mm;
+    font-size: 8.5pt;
+    color: #D5E4DF;
+  }
+  .specimen {
+    margin-top: 8mm;
+    background: var(--card);
+    color: var(--ink);
+    border-radius: 2.5mm;
+    padding: 6mm 6.5mm 5.5mm;
+  }
+  .spec-q {
+    font-size: 8pt;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+  .spec-q strong {
+    display: block;
+    margin-top: 1mm;
+    color: var(--ink);
+    font-size: 11.5pt;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+  .spec-body {
+    display: grid;
+    grid-template-columns: 46mm 1fr;
+    gap: 5mm;
+    margin-top: 4.5mm;
+  }
+  .score-num {
+    font-family: "Nanum Myeongjo", "Apple SD Gothic Neo", serif;
+    font-size: 42pt;
+    line-height: 0.85;
+    letter-spacing: -0.04em;
+    font-weight: 800;
+    color: var(--pine);
+  }
+  .score-cap {
+    margin-top: 2.2mm;
+    font-size: 8pt;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .score-cap b { color: var(--ink); font-weight: 650; }
+  .chips {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5mm 2.5mm;
+    align-content: start;
+  }
+  .chip {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 2mm;
+    background: white;
+    border: 0.3pt solid var(--line);
+    border-left: 2.2pt solid var(--c, var(--line-strong));
+    padding: 1.35mm 2.2mm 1.2mm;
+    font-size: 8pt;
+  }
+  .chip .k { color: var(--muted); }
+  .chip .v { font-weight: 650; letter-spacing: -0.01em; }
+  .chip.g { --c: var(--green); }
+  .chip.a { --c: var(--amber); }
+  .chip.r { --c: var(--red); }
+  .alts {
+    margin-top: 4mm;
+    padding-top: 3.2mm;
+    border-top: 0.4pt solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 4mm;
+  }
+  .alts .lbl { font-size: 7.6pt; letter-spacing: 0.06em; color: var(--clay); font-weight: 650; }
+  .alts .places { font-size: 10pt; font-weight: 650; letter-spacing: -0.02em; }
+  .alts .places span { color: var(--faint); font-weight: 450; margin: 0 1.2mm; }
+  .spec-note {
+    margin-top: 2.4mm;
+    font-size: 7.4pt;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .diffs {
+    margin-top: 7mm;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3.2mm 7mm;
+  }
+  .diff { display: grid; grid-template-columns: 8mm 1fr; gap: 1.5mm; }
+  .diff .n {
+    font-family: "Nanum Myeongjo", serif;
+    font-size: 11pt;
+    color: #F0C2AE;
+    line-height: 1.2;
+  }
+  .diff b { display: block; font-size: 9pt; font-weight: 650; letter-spacing: -0.01em; margin-bottom: 0.4mm; }
+  .diff p { margin: 0; font-size: 8pt; line-height: 1.4; color: #D7E3DE; }
+  .cover-foot {
+    position: absolute;
+    left: 15mm; right: 15mm; bottom: 8mm;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.6pt;
+    color: #A9C4BC;
+    border-top: 0.3pt solid rgba(243,239,230,0.25);
+    padding-top: 2.5mm;
+  }
+
+  /* ---------- inner ---------- */
+  .inner { background: var(--paper); padding: 13mm 14mm 16mm; }
+  .running {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 7.6pt;
+    letter-spacing: 0.08em;
+    color: var(--clay);
+    font-weight: 650;
+    text-transform: none;
+  }
+  .running .doc { color: var(--faint); font-weight: 450; letter-spacing: 0.02em; }
+  h2 {
+    font-size: 16pt;
+    line-height: 1.25;
+    letter-spacing: -0.03em;
+    font-weight: 750;
+    color: var(--pine);
+    margin: 2.2mm 0 3.2mm;
+  }
+  h3 {
+    font-size: 10.5pt;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    color: var(--pine);
+    margin: 4.2mm 0 1.6mm;
+  }
+  p { margin: 0 0 2.2mm; }
+  .lead { font-size: 10pt; line-height: 1.5; }
+  .muted { color: var(--muted); }
+  .small { font-size: 7.6pt; color: var(--muted); line-height: 1.4; }
+  .foot {
+    position: absolute;
+    left: 14mm; right: 14mm; bottom: 7mm;
+    display: flex;
+    justify-content: space-between;
+    border-top: 0.4pt solid var(--line-strong);
+    padding-top: 2mm;
+    font-size: 7.5pt;
+    color: var(--faint);
+  }
+  .foot b { color: var(--muted); font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1mm 0 1.5mm; }
+  th {
+    text-align: left;
+    font-size: 7.4pt;
+    letter-spacing: 0.03em;
+    font-weight: 650;
+    color: var(--pine);
+    border-bottom: 0.8pt solid var(--pine);
+    padding: 1.2mm 1.6mm 1.3mm 0;
+    vertical-align: bottom;
+  }
+  td {
+    border-bottom: 0.3pt solid var(--line);
+    padding: 1.35mm 1.6mm 1.35mm 0;
+    vertical-align: top;
+    font-size: 8.15pt;
+    line-height: 1.38;
+  }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+  tr.hi td { background: rgba(23,56,50,0.05); }
+  .src { font-size: 7.3pt; color: var(--faint); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2mm;
+    margin: 2mm 0 1mm;
+  }
+  .stat {
+    background: white;
+    border-top: 1.6pt solid var(--pine);
+    padding: 2.2mm 2.8mm 2mm;
+  }
+  .stat .v {
+    font-family: "Nanum Myeongjo", serif;
+    font-size: 13pt;
+    letter-spacing: -0.03em;
+    color: var(--pine);
+    font-weight: 800;
+    line-height: 1.15;
+  }
+  .stat .l { font-size: 7.6pt; color: var(--muted); margin-top: 0.6mm; line-height: 1.35; }
+
+  .split { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 6mm; }
+  .split.even { grid-template-columns: 1fr 1fr; gap: 5mm; }
+
+  .cmp {
+    display: grid;
+    grid-template-columns: 28mm 1fr 1fr;
+    gap: 0;
+    margin-top: 1mm;
+    background: white;
+    border: 0.4pt solid var(--line);
+  }
+  .cmp div { padding: 1.25mm 2.4mm; border-bottom: 0.3pt solid var(--line); font-size: 8pt; }
+  .cmp .hd { background: var(--pine); color: #F3EFE6; font-weight: 650; font-size: 8pt; border-bottom: none; }
+  .cmp .lab { color: var(--muted); background: #FBF9F4; }
+  .tag {
+    display: inline-block;
+    font-size: 7pt;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 0 1.1mm;
+    border-radius: 0.6mm;
+    vertical-align: 0.4mm;
+    margin-left: 1mm;
+  }
+  .tag.g { color: var(--green); background: var(--green-bg); }
+  .tag.a { color: var(--amber); background: var(--amber-bg); }
+  .tag.r { color: var(--red); background: var(--red-bg); }
+  .tag.n { color: var(--muted); background: var(--gray-bg); }
+
+  ol.clean, ul.clean { margin: 0.5mm 0 1.5mm; padding-left: 4.2mm; }
+  ol.clean li, ul.clean li { margin: 0 0 1.1mm; padding-left: 0.5mm; }
+  ol.clean li::marker { color: var(--clay); font-weight: 700; }
+
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1.4mm;
+    margin: 1.5mm 0 1mm;
+  }
+  .flow .st {
+    background: white;
+    border-top: 1.6pt solid var(--pine);
+    padding: 1.8mm 2mm 1.6mm;
+    min-height: 22mm;
+  }
+  .flow .st .i { font-family: "Nanum Myeongjo", serif; color: var(--clay); font-size: 9pt; }
+  .flow .st b { display: block; font-size: 8.3pt; margin: 0.4mm 0; letter-spacing: -0.02em; }
+  .flow .st span { display: block; font-size: 7.3pt; color: var(--muted); line-height: 1.35; }
+  .replan {
+    margin-top: 1.5mm;
+    font-size: 8pt;
+    color: var(--pine);
+    background: white;
+    border-left: 2.2pt solid var(--clay);
+    padding: 1.6mm 2.5mm;
+  }
+
+  .call {
+    background: white;
+    border-left: 2.2pt solid var(--pine);
+    padding: 2mm 3mm;
+    margin: 1.5mm 0;
+    font-size: 8.4pt;
+  }
+  code, .mono {
+    font-family: "D2Coding", "SF Mono", ui-monospace, monospace;
+    font-size: 7.5pt;
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
+  .cmd { display: block; margin: 0.6mm 0; word-break: break-all; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .box {
+    background: white;
+    padding: 2.4mm 3mm 2mm;
+    border-top: 1.6pt solid var(--pine);
+  }
+  .box h3 { margin-top: 0; }
+  .box ul { margin: 0; padding-left: 3.6mm; }
+  .box li { margin: 0 0 0.8mm; font-size: 8.15pt; }
+</style>
+</head>
+<body>
+
+<!-- ===================== 1 COVER ===================== -->
+<section class="sheet cover">
+  <div class="cover-top">
+    <span>제주 AI·빅데이터 활용 AI Agent 개발 챌린지 · 기획서</span>
+    <b>2026.11.20</b>
+  </div>
+  <div class="wordmark">섬자리</div>
+  <h1>성수기 착시를 걷어내는<br><em>제주 창업 입지 진단</em> Agent</h1>
+  <div class="cover-by">설규한 · 개인 · 한 줄 질문으로 7개 신호, 3D 지도, 대안 지역</div>
+
+  <div class="specimen">
+    <div class="spec-q">그림 1 · 첫 화면 예시 질문을 규칙 루프로 실행한 결과
+      <strong>「애월읍에서 카페 창업하려는데 어떨까요?」</strong>
+    </div>
+    <div class="spec-body">
+      <div>
+        <div class="score-num">55</div>
+        <div class="score-cap"><b>종합 점수</b><br>신호 7/7 · 기본 조건<br>균형 · 주 고객 상관없음<br>빨간 신호 2개 → 대안 탐색</div>
+      </div>
+      <div class="chips">
+        <div class="chip r"><span class="k">관광 의존</span><span class="v">74.5%</span></div>
+        <div class="chip a"><span class="k">계절 변동</span><span class="v">1.96배</span></div>
+        <div class="chip g"><span class="k">수요 규모</span><span class="v">6위 / 41</span></div>
+        <div class="chip g"><span class="k">유동 수요</span><span class="v">3위 / 43</span></div>
+        <div class="chip a"><span class="k">경쟁 밀도</span><span class="v">333 점포/억</span></div>
+        <div class="chip r"><span class="k">3년 생존</span><span class="v">66.3% · −4.8%p</span></div>
+        <div class="chip g"><span class="k">24개월 순증</span><span class="v">+17</span></div>
+        <div class="chip g"><span class="k">신뢰</span><span class="v">정상 · 전부 산출</span></div>
+      </div>
+    </div>
+    <div class="alts">
+      <span class="lbl">AGENT가 고른 대안</span>
+      <span class="places">이도2동 81<span>·</span>일도2동 79<span>·</span>화북동 73</span>
+    </div>
+    <div class="spec-note">매출·순위·생존율은 Python 도구가 계산했다. 기준 기간 2018-01~2019-12. 관광·계절·수요는 D1(as of 2021-05), 유동은 D2, 점포는 D4(2025-09), 생존·개폐업은 D5(2025-09-02). 카드 금액은 표본이라 화면은 비중·순위 중심이다.</div>
+  </div>
+
+  <div class="diffs">
+    <div class="diff"><div class="n">01</div><div><b>숫자는 도구만 만든다</b><p>LLM 문장에 도구 밖 숫자가 있으면 그 리포트를 버리고, 같은 규칙 루프 결과로 바꾼다.</p></div></div>
+    <div class="diff"><div class="n">02</div><div><b>불리하면 스스로 다시 찾는다</b><p>빨간 신호가 2개 이상이면 같은 업종으로 행정동을 다시 돌려 상위 3곳을 붙인다.</p></div></div>
+    <div class="diff"><div class="n">03</div><div><b>데이터가 모자라면 점수를 비운다</b><p>가용 신호가 3개 미만이거나 수요 계열이 없으면 종합 점수는 비운다. PC방·네일샵이 이 경우다.</p></div></div>
+    <div class="diff"><div class="n">04</div><div><b>신호마다 출처와 시점이 있다</b><p>데이터 ID, 계산 창, as-of가 신호에 붙는다. 2021-05 이후 카드 공백을 숨기지 않는다.</p></div></div>
+  </div>
+
+  <div class="cover-foot">
+    <span>제주데이터허브 746 · 748 · 793 · 780을 진단에 사용</span>
+    <span>01</span>
+  </div>
+</section>
+
+<!-- ===================== 2 PROBLEM ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>01 · 구현 목표</span><span class="doc">섬자리 기획서</span></div>
+  <h2>성수기에 본 상권과<br>1년 상권은 다른 곳이다.</h2>
+  <p class="lead">제주 예비 창업자는 여름에 붐비는 거리를 보고 자리를 고른다. 관광 매출이 큰 상권은 월별 기복이 커서, 성수기 한 달과 2018–2019년 평균이 같은 상권이 아니다. 비수기, 도민 비중, 3년 생존율은 데이터셋이 서로 떨어져 있어 상담 한 자리에서 겹쳐 보기 어렵다.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="v">20.0 → 12.4%</div><div class="l">제주 신생률, 2016년에서 2025년 잠정치. 전국은 15.2%에서 11.7%. KOSIS 기업생멸행정통계.</div></div>
+    <div class="stat"><div class="v">24.4 → 14.2%</div><div class="l">같은 기간 숙박·음식점업 신생률. 진입이 쉬운 업종일수록 기울기가 가파르다.</div></div>
+    <div class="stat"><div class="v">1년 63.0 · 3년 48.9%</div><div class="l">제주 신생기업 생존율. 국가데이터처 2025 기업생멸행정통계.</div></div>
+    <div class="stat"><div class="v">폐업 / 창업 95.8%</div><div class="l">2023년 제주 청년 창업 대비 폐업. 한국은행 제주본부. 원인은 내국인 관광 수요와 저진입 업종의 경쟁으로 정리되어 있다.</div></div>
+  </div>
+  <p class="small">위 네 칸은 제주 창업 환경의 배경이다. 섬자리 점수는 이 거시 통계로 만들지 않는다. 행정동×업종 신호는 아래 데이터로 따로 계산한다.</p>
+
+  <h3>같은 질문, 두 행정동 — 카페 · 기본 가중치</h3>
+  <p>애월읍 카페는 업종 안 수요 6위이고 점포 수 1위(225개), 최근 24개월 순증도 +17이다. 그 세 숫자만 보면 상권이 커 보인다. 관광 매출 74.5%와 업종 평균(71.0%)보다 4.8%p 낮은 3년 생존율이 그 인상을 가른다. 이도2동은 순증이 −11이지만 관광 비중 30%, 계절 배율 1.23, 생존율 76.8%라 종합 81이다.</p>
+
+  <div class="cmp">
+    <div class="hd"></div><div class="hd">애월읍 · 55점</div><div class="hd">이도2동 · 81점</div>
+    <div class="lab">관광 의존</div>
+    <div>74.5% <span class="tag r">빨강</span></div>
+    <div>30.0% <span class="tag g">초록</span></div>
+    <div class="lab">계절 변동</div>
+    <div>1.96배 · 8월/12월 <span class="tag a">노랑</span></div>
+    <div>1.23배 · 7월/2월 <span class="tag g">초록</span></div>
+    <div class="lab">수요 규모</div>
+    <div>6위 / 41 <span class="tag g">초록</span></div>
+    <div>1위 / 41 <span class="tag g">초록</span></div>
+    <div class="lab">유동 수요</div>
+    <div>방문 758만 · 3위/43 <span class="tag g">초록</span></div>
+    <div>방문 866만 · 1위/43 <span class="tag g">초록</span></div>
+    <div class="lab">경쟁 밀도</div>
+    <div>333.20 점포/억원 · 점포 225, 1위 <span class="tag a">노랑</span></div>
+    <div>96.62 점포/억원 · 점포 181, 3위 <span class="tag g">초록</span></div>
+    <div class="lab">3년 생존</div>
+    <div>66.3% (n=261) · −4.8%p <span class="tag r">빨강</span></div>
+    <div>76.8% (n=405) · +5.7%p <span class="tag g">초록</span></div>
+    <div class="lab">24개월</div>
+    <div>개업 53 / 폐업 36 · 순증 +17 <span class="tag g">초록</span></div>
+    <div>개업 25 / 폐업 36 · 순증 −11 <span class="tag r">빨강</span></div>
+  </div>
+  <p class="small" style="margin-top:1.6mm">그림 2. 규칙 루프, 리스크 성향 균형, 주 고객 상관없음. 월평균 카드 이용금액은 애월읍 6,753만 원, 이도2동 1억 8,732만 원(D1 표본, 2018-01~2019-12). 유동은 업종과 무관한 방문인구다. 1년 생존율은 애월읍 85.9%, 이도2동 92.8%.</p>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>02</b></div>
+</section>
+
+<!-- ===================== 3 USERS ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>01 · 구현 목표</span><span class="doc">사용자와 분석 목표</span></div>
+  <h2>누가, 무엇을 묻나.</h2>
+
+  <table>
+    <thead><tr><th style="width:32mm">사용자</th><th>지금 하는 일</th><th>섬자리가 건네는 것</th></tr></thead>
+    <tbody>
+      <tr><td>예비 창업자<br><span class="src">도민·이주민</span></td><td>허브에서 파일을 받아 동·업종을 직접 맞춘다. 성수기 매출과 생존율이 한 표에 없다.</td><td>질문 한 줄. 신호 7개, 종합 점수, 대안 3곳.</td></tr>
+      <tr><td>창업 상담원<br><span class="src">센터·지원기관</span></td><td>상담마다 근거 표를 다시 만든다.</td><td>신호별 출처·기간·as-of가 붙은 리포트. 화면에서 바로 읽는다.</td></tr>
+      <tr><td>통계에 익숙하지 않은 도민</td><td>이용금액 원 단위를 성공 가능성으로 읽기 쉽다.</td><td>초록·노랑·빨강과 한 문장. 원 단위는 비중·순위 뒤로 둔다.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>분석이 끝나는 지점</h3>
+  <ol class="clean">
+    <li><b>질문에서 업종·지역·조건을 읽는다.</b> 구어(커피숍, 빵집, 한림)는 16개 업종·43개 행정동으로 접는다. 둘 다 비면 업종 선택지를 되묻는다.</li>
+    <li><b>그 업종에 있는 데이터만으로 신호를 계산한다.</b> 카드 매출이 있는 11개 업종은 7개 신호가 나온다. 점포만 있는 5개는 유동·경쟁만 나오고 점수는 비운다.</li>
+    <li><b>빨간 신호가 2개 이상이면 대안 지역을 붙인다.</b> 지역을 비우고 업종만 물으면, 진단 대신 전 지역 비교로 상위 3곳을 낸다.</li>
+    <li><b>리포트는 고정된 항목으로 나온다.</b> 요약, 신호, 점수, 대안, 근거, 한계, 지도 레이어. 창업 여부는 적지 않는다.</li>
+  </ol>
+
+  <h3>이 주제가 흔한 상권 추천과 갈라지는 곳</h3>
+  <div class="two">
+    <div class="box">
+      <h3>착시를 점수에 넣는다</h3>
+      <ul>
+        <li>관광 의존과 계절 배율을 수요 순위와 분리한다.</li>
+        <li>애월읍은 수요가 높아도 관광·생존에서 빨강이 된다.</li>
+        <li>최근 순증이 플러스여도 생존율이 업종 평균 아래면 그대로 보여 준다.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>말과 계산을 나눈다</h3>
+      <ul>
+        <li>문장 모델은 의도, 도구 선택, 요약만 맡는다.</li>
+        <li>금액, 백분위, 등급, 종합 점수는 pandas 계산이다.</li>
+        <li>키가 없어도 규칙 루프가 같은 숫자를 낸다.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="two" style="margin-top:3mm">
+    <div class="box">
+      <h3>없는 데이터로 순위를 만들지 않는다</h3>
+      <ul>
+        <li>신호 3개 미만이면 점수 null, 신뢰도 낮음.</li>
+        <li>수요 규모나 유동이 하나도 없으면, 경쟁 밀도만으로 점수를 주지 않는다.</li>
+        <li>빠진 신호는 숨기지 않고 사유를 적는다.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>카탈로그 안에서만 고른다</h3>
+      <ul>
+        <li>업종 16개는 매핑표에서 온다. 표 밖 업종은 생성하지 않는다.</li>
+        <li>생활 지명(제주시청, 성산일출봉)은 Gemini가 43개 동 중 하나만 고른다. 목록 밖 이름은 버린다.</li>
+        <li>키가 없으면 지명을 추측하지 않고 지역을 되묻는다.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>이번 제출에서 하지 않는 것</h3>
+  <p>업종 자체를 추천하는 기능, D3 성별·연도 트렌드를 신호에 넣는 기능, 리포트 PDF 저장, 신호 개수와 이후 실제 폐업의 사후 대조는 코드에 연결되어 있지 않다. 본문에서는 구현된 경로만 실행 결과로 적고, 나머지는 11쪽 계획에 둔다.</p>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>03</b></div>
+</section>
+
+<!-- ===================== 4 SERVICE ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>02 · 서비스</span><span class="doc">한 줄에서 리포트까지</span></div>
+  <h2>입력은 한 줄, 출력은 신호등이다.</h2>
+  <p>첫 화면은 검색창이다. 예시 칩에 애월읍 카페, 이도2동 베이커리, 성산읍 기념품점, 한림읍 한식당이 있다. 질문을 보내면 대시보드로 넘어가고, 진행 단계가 서버 전송 이벤트(SSE)로 바뀐다.</p>
+
+  <div class="flow">
+    <div class="st"><div class="i">1</div><b>의도</b><span>업종·지역·추천 여부. 주 고객·연령 힌트.</span></div>
+    <div class="st"><div class="i">2</div><b>해석</b><span>매핑표와 행정동 목록에 맞춘다. 실패하면 후보.</span></div>
+    <div class="st"><div class="i">3</div><b>도구</b><span>수요, 점포, 유동, 생존, 개폐업, 점수.</span></div>
+    <div class="st"><div class="i">4</div><b>검증</b><span>신호 수, 수요 계열, 표본 n&lt;10.</span></div>
+    <div class="st"><div class="i">5</div><b>재계획</b><span>빨강 2개 이상이면 다른 동 Top 3.</span></div>
+    <div class="st"><div class="i">6</div><b>리포트</b><span>고정 스키마. 지도 레이어와 함께 렌더.</span></div>
+  </div>
+  <div class="replan">규칙 루프의 도구 순서는 코드에 고정되어 있다. Gemini 경로는 function calling으로 도구를 고른다. 어느 쪽이든 등급과 점수는 <span class="mono">score_risk</span> 결과를 쓴다. 계획 단계는 화면의 진행 표시이고, 별도의 계획 문서를 저장하지는 않는다.</div>
+
+  <h3>화면에 있는 것</h3>
+  <table>
+    <thead><tr><th style="width:28mm">기능</th><th>사용자가 보는 것</th><th style="width:38mm">데이터</th></tr></thead>
+    <tbody>
+      <tr><td>한 줄 진단</td><td>자연어 질문. 부족하면 업종 16개 또는 지역 후보를 버튼으로 되묻는다.</td><td>매핑표, 행정동 43</td></tr>
+      <tr><td>신호 7개</td><td>관광 의존, 계절 변동, 수요 규모, 유동 수요, 경쟁 밀도, 생존 리스크, 최근 개폐업. 없으면 흰색과 사유.</td><td>D1 D2 D4 D5</td></tr>
+      <tr><td>3D 지도</td><td>행정동 기둥. 레이어는 수요·관광·공급·유동·생존. 1–12월 슬라이더. 베이스맵 타일 없음.</td><td>전처리 parquet</td></tr>
+      <tr><td>대안 3곳</td><td>빨강 2개 이상, 또는 지역을 비운 추천. 점수 없는 후보는 순위 뒤로 보낸다.</td><td>같은 가중치로 재계산</td></tr>
+      <tr><td>이어 묻기</td><td>「그럼 한림읍은?」은 업종을 유지하고 동만 바꾼다. 업종만 말하면 지역은 비우고 추천으로 간다. 주 고객·성향은 유지, 연령은 초기화.</td><td>세션에 직전 폼</td></tr>
+      <tr><td>근거·한계</td><td>신호마다 as-of. 카드 표본, 2021-05 이후 공백, 인허가와 실영업의 차이.</td><td>registry.json</td></tr>
+      <tr><td>진행 공개</td><td>의도, 계획, 도구, 검증, 리포트. 도구 이름과 한 줄 요약이 쌓인다.</td><td>SSE</td></tr>
+    </tbody>
+  </table>
+
+  <h3>입력과 출력의 밀도</h3>
+  <div class="split even">
+    <div>
+      <p>조건 패널에서 업종, 희망 지역, 주 고객(관광객·도민·상관없음), 타깃 연령, 리스크 성향(안정·균형·공격)을 고칠 수 있다. 주 고객과 성향은 가중치에 반영된다. 연령은 질문과 폼에 남지만, 유동 데이터에 연령 열이 없어 점수에는 들어가지 않는다. 이 한계는 리포트에 숨기지 않는다.</p>
+    </div>
+    <div>
+      <p>레이아웃은 왼쪽 조건, 가운데 지도와 월 슬라이더, 오른쪽 대화와 리포트다. 첫 방문에는 사용 순서를 한 번 안내한다. 설치는 Python 하나다. 화면은 미리 빌드해 <span class="mono">apps/api/static</span>에 넣었고, Node는 평가 PC에 필요 없다.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>04</b></div>
+</section>
+
+<!-- ===================== 5 SCENARIOS ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>02 · 서비스</span><span class="doc">시나리오 다섯 개, 모두 현재 빌드</span></div>
+  <h2>질문별로 실제로 나오는 답.</h2>
+  <p>아래는 <span class="mono">LLM_PROVIDER=none</span> 규칙 루프를 저장소 데이터로 다시 실행한 결과다. 기본 가중치는 균형, 주 고객 상관없음. 안정형은 관광·계절·생존 가중치를 올려 애월읍 카페가 50점, 대안이 이도2동 82 · 일도2동 80 · 화북동 75가 된다. 시연 기본값은 균형(55점)이다.</p>
+
+  <table>
+    <thead><tr><th style="width:22mm">상황</th><th>질문</th><th>결과</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>S1 관광지</td>
+        <td>애월읍에서 카페 창업하려는데 어떨까요?</td>
+        <td>종합 55. 빨강은 관광 의존·생존. 대안 이도2동 81, 일도2동 79, 화북동 73. 이도2동만 보면 빨강이 순증 하나라 대안 탐색은 붙지 않는다.</td>
+      </tr>
+      <tr>
+        <td>S2 지역 미정</td>
+        <td>베이커리 할만한 동네 추천</td>
+        <td>지역 비교만 수행. 연동 78, 이도2동 76, 건입동 73. 연동은 최근 24개월 개폐업이 없어 신호 6/7이다. 점수는 나머지 가중치로 다시 나눈다.</td>
+      </tr>
+      <tr>
+        <td>S3 데이터 부족</td>
+        <td>PC방 하려는데 어디가 좋아? / 애월읍 네일샵</td>
+        <td>카드(D1)·음식점 인허가(D5)가 없다. 애월읍 네일샵은 유동 초록, 점포 12개 노랑. 신호 2/7이라 점수 null. PC방 전 지역도 점수가 없어 순위 추천으로 내놓지 않는다.</td>
+      </tr>
+      <tr>
+        <td>S4 이어 묻기</td>
+        <td>그럼 한림읍은?</td>
+        <td>직전 업종 유지, 한림읍으로 다시 진단. 「한식당은 어때?」는 지역을 비우고 한식당 지역 추천이 된다.</td>
+      </tr>
+      <tr>
+        <td>S5 모호</td>
+        <td>위치 추천해줘 / 성산읍에 뭐 하면 좋을까 / 자동차 정비소</td>
+        <td>업종 추천 모드는 아직 없다. 업종 16개 중 고르라고 되묻는다. 매핑 밖 업종도 같다. 리포트는 만들지 않는다.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>생활 지명</h3>
+  <p>「제주시청 근처」「함덕 해수욕장」「성산일출봉」「중문 관광단지」는 행정동 문자열과 겹치지 않는다. Gemini가 켜져 있으면 43개 행정동 목록 안에서만 고르게 하고, 제주시청은 이도1동, 함덕은 조천읍, 일출봉은 성산읍, 중문은 중문동으로 검증해 두었다. 목록에 없는 이름을 모델이 지어내면 받지 않는다. 키가 없으면 이 해석을 건너뛰고 지역을 되묻는다. 시연 PC에 키가 없을 때의 동작은 되묻기 쪽이다.</p>
+
+  <h3>센터에서 쓰는 자리</h3>
+  <div class="two">
+    <div class="box">
+      <h3>상담 보조</h3>
+      <ul>
+        <li>신청 업종·동을 넣으면 관광 의존, 생존, 개폐업이 한 카드에 모인다.</li>
+        <li>출처와 시점이 붙어 상담 메모에 그대로 옮길 수 있다.</li>
+        <li>점수가 비면 “추천 불가”로 읽고, 빈칸을 좋은 점수로 오해하지 않는다.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>데이터 재사용</h3>
+      <ul>
+        <li><span class="mono">data/processed</span> parquet은 분석가가 신호를 빼고 다시 쓸 수 있다.</li>
+        <li>가중치만 바꾸면 안정·공격, 관광객·도민 상담이 갈린다.</li>
+        <li>신호 정의는 레지스트리 한 곳이다. 관광 수용력처럼 다른 질문으로 바꿀 때 계산 위치를 찾는다.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="small" style="margin-top:3mm">진단은 참고다. 임대료, 권리금, 인허가 요건, 건물 상태는 데이터에 없다. 리포트는 창업을 권하지 않는다.</p>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>05</b></div>
+</section>
+
+<!-- ===================== 6 AGENT ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>03 · Agent</span><span class="doc">역할, 모델, 환각 차단</span></div>
+  <h2>계산은 코드, 문장은 모델.</h2>
+  <p>역할은 제주 창업 입지 분석가다. 목표는 조건에 맞는 진단과, 근거가 있는 대안이다. 성공·확실 같은 단정은 프롬프트에서 막는다. “데이터상 유리·불리”로 말하게 되어 있다.</p>
+
+  <table>
+    <thead><tr><th style="width:28mm">단계</th><th>담당</th><th>산출</th></tr></thead>
+    <tbody>
+      <tr><td>의도 파악</td><td>규칙 <span class="mono">parse_intent</span>. Gemini 경로에서는 모델이 도구를 고르기 전에 제약을 읽는다.</td><td>diagnose / place_recommend / category_recommend / clarify. 힌트와 주 고객·연령.</td></tr>
+      <tr><td>업종·지역</td><td>완전일치 → 부분일치 → 별칭. 지명은 Gemini + 43개 화이트리스트.</td><td>표준 업종, 행정동. 애매하면 후보 목록.</td></tr>
+      <tr><td>도구 실행</td><td>Python. LLM은 이 함수의 반환만 인용한다.</td><td>신호 값, 백분위, source, period, as_of, note.</td></tr>
+      <tr><td>검증</td><td>점수 규칙 + 그라운딩.</td><td>신뢰도. 모델 문장의 숫자가 도구 요약에 없으면 리포트 폐기.</td></tr>
+      <tr><td>재계획</td><td>빨강 ≥ 2 이면 <span class="mono">compare_places</span>. 지역이 없으면 처음부터 비교.</td><td>점수 있는 동 우선, 상위 3. 원 지역은 제외.</td></tr>
+      <tr><td>리포트</td><td>스키마 JSON. 서버가 신호 개수와 점수 보류를 한 번 더 적용한다.</td><td>카드, 지도 하이라이트, 한계 문장.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>모델</h3>
+  <table>
+    <thead><tr><th style="width:36mm">구분</th><th>구현</th></tr></thead>
+    <tbody>
+      <tr><td>기본</td><td><span class="mono">LLM_PROVIDER=none</span>. 규칙 루프. API 키·인터넷 없이 진단 전체가 동작하고, 숫자는 결정론적이다. 평가 PC의 기본 경로로 둔다.</td></tr>
+      <tr><td>선택 LLM</td><td>Google Gemini function calling만 구현되어 있다. 모델 문자열은 <span class="mono">LLM_MODEL</span>. 저장소 메모의 권장 예는 gemini-3.5-flash-lite다. 타임아웃 30초, 재시도 2회.</td></tr>
+      <tr><td>미구현 공급자</td><td><span class="mono">openai</span>, <span class="mono">anthropic</span>은 호출 시 예외 후 규칙 루프로 떨어진다. 로컬 LLM은 쓰지 않는다. GPU가 필요 없다.</td></tr>
+      <tr><td>호출 상한</td><td>Gemini 라운드 상한 8(<span class="mono">AGENT_MAX_TOOL_CALLS</span>). 상한을 넘기거나, JSON 형식·그라운딩 검사에 실패하면 규칙 루프가 리포트를 다시 만든다. 화면 모드 표식은 <span class="mono">llm_fallback</span>.</td></tr>
+      <tr><td>계산</td><td>pandas, pyarrow parquet. 읽기 전용으로 메모리에 올린다. 외부 DB는 없다. 세션만 로컬 SQLite.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="call">그라운딩: 모델이 쓴 요약·근거·대안 설명 속의 수가 도구 요약 또는 신호 값에 없으면 그 JSON은 버린다. 서버는 이어서, 가용 신호가 3개 미만이거나 수요 계열(수요 규모·유동 수요)이 없으면 점수를 null로 덮어쓴다. 모델이 점수를 채워도 이 규칙이 이긴다.</div>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>06</b></div>
+</section>
+
+<!-- ===================== 7 TOOLS ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>03 · Agent</span><span class="doc">도구와 자율 범위</span></div>
+  <h2>무엇을 스스로 정하고, 무엇을 묻나.</h2>
+  <p>신호는 레지스트리에 선언되어 있다. 각 항목이 필요한 데이터 ID, 수요 계열 여부, 높을수록 빨간지 낮을수록 빨간지를 적는다. 계산은 그 데이터가 있을 때만 돌아가고, 실패하면 <span class="mono">unavailable</span>과 사유가 된다. 업종 이름을 점수 코드에 분기해 두지 않았다. 구어 별칭(커피숍→카페, 빵집→베이커리)만 작은 표로 있다.</p>
+
+  <table>
+    <thead><tr><th style="width:48mm">도구</th><th>하는 일</th><th style="width:22mm">상태</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">parse_intent</td><td>문장에서 업종·동·추천 의도·주 고객·연령</td><td>사용</td></tr>
+      <tr><td class="mono">resolve_category / resolve_place</td><td>카탈로그 후보로만 확정. 복수 후보면 미확정</td><td>사용</td></tr>
+      <tr><td class="mono">resolve_place_via_landmark</td><td>생활 지명 → 43개 동 중 하나. 키 없으면 미확정</td><td>Gemini 필요</td></tr>
+      <tr><td class="mono">get_demand<br>get_footfall<br>get_supply</td><td>월평균 매출·관광 비중·계절, 방문인구, 점포 수</td><td>사용</td></tr>
+      <tr><td class="mono">get_survival / get_recent_openings</td><td>1·3년 생존(중도절단), 최근 24개월 개폐업</td><td>사용</td></tr>
+      <tr><td class="mono">score_risk / compare_places</td><td>등급·점수·보류, 대안 또는 지역 추천</td><td>사용</td></tr>
+      <tr><td class="mono">render_map</td><td>레이어와 강조 동을 UI에 지시</td><td>사용</td></tr>
+      <tr><td class="mono">get_tourism_trend</td><td>입도객. 규칙 루프가 호출한다</td><td>제출본에 parquet 없음</td></tr>
+      <tr><td class="mono">get_dong_vitality</td><td>읍면동 사업체 생멸 (D6)</td><td>함수만 있음. 루프 미호출</td></tr>
+      <tr><td class="mono">get_trend / find_gap_category</td><td>연도 트렌드, 빈 업종 추천</td><td>미구현</td></tr>
+    </tbody>
+  </table>
+
+  <h3>판단의 경계</h3>
+  <table>
+    <thead><tr><th>Agent가 정한다</th><th>사람에게 묻는다</th><th>하지 않는다</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>데이터가 있는 신호만 실행하고, 가중치를 그 신호만으로 다시 나눈다.</td>
+        <td>업종과 지역이 둘 다 없거나, 업종 추천을 요구할 때. 선택지를 준다.</td>
+        <td>도구가 주지 않은 수를 만든다. 매출을 예측하지 않는다.</td>
+      </tr>
+      <tr>
+        <td>빨강 2개 이상이면 대안 동을 찾는다. 지역이 없으면 전 동 비교로 전환한다.</td>
+        <td>동·업종 후보가 여러 개로 갈릴 때.</td>
+        <td>매핑표와 43개 동 밖의 이름을 만든다.</td>
+      </tr>
+      <tr>
+        <td>신호 3개 미만, 또는 수요 계열 0개면 점수를 비운다.</td>
+        <td>생활 지명을 키가 없는 상태에서 맞힐 수 없을 때.</td>
+        <td>창업하라고 말하지 않는다. 점수는 참고 순위다.</td>
+      </tr>
+      <tr>
+        <td>3년 생존 표본 n&lt;10이면 시·군 값으로 바꾸고, fallback 문구를 남긴다.</td>
+        <td>대체했다는 사실은 리포트에 적는다. 사용자에게 다시 묻지 않는다.</td>
+        <td>D1의 매장수 열은 쓰지 않는다. 시 단위로 동일해 동 비교가 불가능하다. 점포 수는 D4로 센다.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>07</b></div>
+</section>
+
+<!-- ===================== 8 DATA ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>04 · 데이터</span><span class="doc">제주데이터허브. 진단에 쓰는 것과 적재만 된 것</span></div>
+  <h2>진단에 쓰는 데이터는 네 개다.</h2>
+  <p>여섯 개를 전처리했다. 점수에 들어가는 것은 D1·D2·D4·D5다. D3·D6은 parquet까지 만들어 두었고 신호에는 연결되어 있지 않다. D9 입도객 도구는 있으나 제출 파일에는 결과가 없다. 없는 신호를 있는 것처럼 세지 않기 위해 표를 나눴다.</p>
+
+  <h3>진단 신호에 연결됨</h3>
+  <table>
+    <thead><tr><th style="width:12mm">ID</th><th>정식 이름</th><th style="width:38mm">기간</th><th>쓰는 곳</th></tr></thead>
+    <tbody>
+      <tr><td>D1</td><td>주제1 제주 예비창업자를 위한 업종별 카드 매출과 매장수 매쉬업. 허브 746. 법정동 73.</td><td>2018-01~2019-12, 2021-01~05</td><td>관광 의존, 계절, 수요. 계산 창은 2018–2019만. 2021년 5개월은 넣지 않는다.</td></tr>
+      <tr><td>D2</td><td>주제3 상권분석을 위한 유동인구에 따른 카드 매출액 변화 매쉬업. 허브 748. 행정동 43.</td><td>2017-01~2021-05</td><td>유동 수요. 거주·근무·방문. 신호는 방문인구 월평균. 업종 무관.</td></tr>
+      <tr><td>D4</td><td>제주특별자치도 상가(상권) 정보. 허브 793.</td><td>2025-09</td><td>점포 수, 경쟁 밀도, 업종 목록, 법정동→행정동, 지도 좌표.</td></tr>
+      <tr><td>D5</td><td>제주특별자치도 음식점 목록(통합). 허브 780, LOCALDATA. 51,111행.</td><td>1960-01 ~ 2025-08-29<br>기준일 2025-09-02</td><td>1·3년 생존, 24개월 개폐업. 주소로 행정동을 붙인다. 실패 0.2%.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>적재만 됨 · 이번 진단 루프 밖</h3>
+  <table>
+    <thead><tr><th style="width:12mm">ID</th><th>정식 이름</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td>D3</td><td>업종별 성별 카드 이용 정보. 허브 1048. 2018-01~2025-06. 제주 전체.</td><td><span class="mono">trend_yearly.parquet</span>까지 생성. <span class="mono">get_trend</span>는 미구현. D1 업종 42개 중 40개가 이름 일치.</td></tr>
+      <tr><td>D6</td><td>읍면동 사업체 생멸. 허브 830, KOSIS 원천. 2018~2023.</td><td><span class="mono">dong_lifecycle.parquet</span> 있음. 값 5 이하는 비식별(*). 진단 루프는 호출하지 않는다.</td></tr>
+      <tr><td>D9</td><td>방문목적별 입도객 현황. 허브 580 API.</td><td>키가 있으면 CSV로 캐시하는 코드가 있다. 제출 parquet은 없다. 호출하면 데이터 없음으로 끝난다.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>업종 16개</h3>
+  <p>카드 매출이 있어 수요·관광·계절이 나오는 11개: 카페, 한식당, 양식당, 일식당, 중식당, 술집, 베이커리, 편의점, 기념품점, 소형숙박, 패스트푸드. 점포(D4)만 있는 5개: PC방, 미용실, 네일샵, 헬스장, 노래방. 이 5개는 되묻지 않고 부분 진단으로 들어가 점수를 보류한다. 16개 밖은 업종을 다시 묻는다.</p>
+  <p class="small">인코딩은 D1·D2·D4·D5가 CP949, D3가 UTF-8 BOM이다. D2 년월은 파일마다 <span class="mono">YYYY-MM-DD</span>와 <span class="mono">21-Apr</span>가 섞여 있어 <span class="mono">YYYY-MM</span>으로 맞춘다. D1 연령·성별의 결측과 ‘알수없음’은 연령 비중 계산에서 뺀다. 연령 비중 자체는 점수 밖이다.</p>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>08</b></div>
+</section>
+
+<!-- ===================== 9 SIGNALS ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>04 · 데이터</span><span class="doc">신호 정의와 가중치</span></div>
+  <h2>일곱 신호의 식.</h2>
+  <p>비교 집단은 같은 업종의 행정동이다. 백분위는 “나보다 값이 작은 동의 비율”이다. 높을수록 불리한 신호는 상위 1/3이 빨강, 가운데가 노랑, 하위 1/3이 초록이다. 낮을수록 불리한 신호(수요, 유동, 생존)는 백분위를 뒤집어 낮은 값이 빨강이 된다.</p>
+
+  <table>
+    <thead><tr><th style="width:24mm">신호</th><th>식</th><th style="width:28mm">방향</th><th style="width:16mm">기본 가중</th></tr></thead>
+    <tbody>
+      <tr><td>관광 의존</td><td>(관광 개별 + 관광 단체) / 이용금액 합계</td><td>높으면 빨강</td><td class="num">20</td></tr>
+      <tr><td>계절 변동</td><td>기준 2년의 월별 평균 패턴에서 최고월 / 최저월</td><td>높으면 빨강</td><td class="num">15</td></tr>
+      <tr><td>수요 규모</td><td>기준 기간 월평균 이용금액의 업종 내 순위</td><td>낮으면 빨강</td><td class="num">15</td></tr>
+      <tr><td>유동 수요</td><td>D2 방문인구 월평균. 업종과 무관. 동 순위</td><td>낮으면 빨강</td><td class="num">15</td></tr>
+      <tr><td>경쟁 밀도</td><td>D4 점포 수 / 월평균 매출(억원). 카드가 없으면 점포 수 백분위</td><td>높으면 빨강</td><td class="num">15</td></tr>
+      <tr><td>생존 리스크</td><td>3년 생존율, 업종 평균과의 차. n은 화면에 표시</td><td>낮으면 빨강</td><td class="num">20</td></tr>
+      <tr><td>최근 개폐업</td><td>최근 24개월 폐업/개업. 화면에는 건수와 순증</td><td>높으면 빨강</td><td class="num">15</td></tr>
+    </tbody>
+  </table>
+
+  <h3>종합 점수</h3>
+  <p>가용 신호의 가중치만 합이 1이 되게 다시 나눈다. 높을수록 불리한 신호는 백분위를, 낮을수록 불리한 신호는 (1−백분위)를 위험으로 쓴다.</p>
+  <div class="call">점수 = round( 100 × (1 − Σ 정규화 가중치 × 위험) ). 가용 신호 &lt; 3 이거나 수요 계열이 0개면 점수는 null, confidence는 low. 애월읍 카페는 7개 모두 가용하고 수요 계열이 있어 55가 된다. 애월읍 네일샵은 2개라 null이다.</div>
+
+  <h3>상담 조건이 가중치를 바꾼다</h3>
+  <table>
+    <thead><tr><th style="width:40mm">조건</th><th>조정</th></tr></thead>
+    <tbody>
+      <tr><td>안정</td><td>관광 +10, 계절 +5, 생존 +10. 애월읍 카페는 50점.</td></tr>
+      <tr><td>공격</td><td>관광 −5, 계절 −5, 수요 +10. 애월읍 카페는 59점.</td></tr>
+      <tr><td>주 고객 관광객</td><td>관광 가중치를 15 내리되 최소 5. 관광 상권을 일부러 고른 사람에게 관광 빨강을 덜 묻는다.</td></tr>
+      <tr><td>주 고객 도민</td><td>관광 +10. 도민 장사를 묻는데 관광 의존이 높으면 더 무겁게 본다.</td></tr>
+    </tbody>
+  </table>
+  <p>등급(초록·노랑·빨강)은 백분위 3분위로 고정이다. 성향은 종합 점수와 대안 순위에만 영향을 준다. 그래서 같은 빨강이라도 안정형과 공격형의 순위가 달라진다.</p>
+
+  <h3>생존율의 중도절단</h3>
+  <p>3년 생존율의 분모는 인허가일+3년이 기준일(2025-09-02) 이전인 점포만이다. 아직 3년이 안 된 점포는 빠진다. 폐업일이 없거나 폐업일이 인허가+3년 이후면 생존이다. n&lt;10이면 제주시 또는 서귀포시 값으로 바꾸고 리포트에 대체 사실을 적는다. 애월읍 카페는 n=261이라 대체하지 않았다.</p>
+  <p class="small">경쟁 밀도는 2025-09 점포 수와 2018–2019 매출을 한 식에 넣는다. 시점 불일치는 한계로 적고, 식에서 빼지는 않았다. 점포가 늘었을 수 있어 밀도는 과대일 수 있다.</p>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>09</b></div>
+</section>
+
+<!-- ===================== 10 PIPELINE ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>04 · 데이터</span><span class="doc">전처리, 공백, 이용 조건</span></div>
+  <h2>전처리는 한 번, 실행은 읽기만.</h2>
+  <p><span class="mono">make data</span>가 <span class="mono">data/raw</span> CSV를 parquet으로 만든다. 평가본은 parquet을 포함하므로 원본 CSV와 이 명령 없이 <span class="mono">make run</span>만으로 동작한다.</p>
+
+  <table>
+    <thead><tr><th style="width:32mm">단계</th><th>처리</th></tr></thead>
+    <tbody>
+      <tr><td>지역 단위</td><td>분석 단위는 행정동 43개. D1 법정동 73개는 D4의 (법정동, 행정동) 쌍에서 법정동별 최빈 행정동으로 올린다. 읍·면은 자기 이름. D1 법정동은 D4 법정동명에 모두 있고, D2 행정동도 D4 행정동명에 모두 있다.</td></tr>
+      <tr><td>업종 연결</td><td><span class="mono">category_map.csv</span>가 D1 업종명, D4 표준산업분류, D5 업종 소분류를 16개 앱 업종에 잇는다. D4 분류명에 세미콜론이 있어 구분자는 세로막대다.</td></tr>
+      <tr><td>수요 버킷</td><td>도민, 관광 개별, 관광 단체, 기타(법인·결측). 관광 의존의 분모는 네 버킷 합이다.</td></tr>
+      <tr><td>음식점 주소</td><td>소재지에서 시와 법정동을 뽑고, 실패하면 도로명으로 보조. 행정동 부여 실패 0.2%. 업종 소분류 미매핑 22.5%는 분석 대상에서 제외한다. 날짜는 <span class="mono">20060206.0</span> 형태를 정리한다.</td></tr>
+      <tr><td>결측·표본</td><td>생존 n&lt;10은 시·군 대체. 개폐업 이력이 없는 동은 그 신호만 unavailable. 베이커리 연동이 이 경우다.</td></tr>
+      <tr><td>시점 공백</td><td>지역 카드는 2021-05에서 끝난다. 그 이후를 추정으로 채우지 않는다. 점포·인허가는 2025년 값을 쓰고, 신호마다 어느 시점인지 적는다.</td></tr>
+      <tr><td>저장</td><td>parquet 11종과 <span class="mono">registry.json</span>(D1–D6의 기간·as-of). 외부 DB 없음.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>이용 조건</h3>
+  <table>
+    <thead><tr><th style="width:42mm">데이터</th><th>조건</th></tr></thead>
+    <tbody>
+      <tr><td>제주데이터허브 공개 데이터</td><td>허브 공공데이터 이용 약관. 상업·비상업 활용과 출처 표기. 이 제출은 비상업 데모다. D9 프로젝트 키는 제출물에 넣지 않고, 발급 절차는 README에 적었다. 키 없이도 진단은 된다.</td></tr>
+      <tr><td>주제1·주제3 매쉬업</td><td>허브 746·748에 수록된 파일을 로컬 CSV로 전처리했다. 실행 중 허브에 다시 접속하지 않는다.</td></tr>
+      <tr><td>개인정보</td><td>점포·카드 모두 집계 또는 인허가 공개 항목이다. 카드 회원을 식별하는 열은 쓰지 않는다.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>알고 쓰는 한계</h3>
+  <ol class="clean">
+    <li>카드 이용금액은 특정 카드사 표본일 수 있다. 절대 금액보다 비중, 배율, 순위로 읽는다.</li>
+    <li>D5는 인허가 기준이라 실제 영업과 다를 수 있다. 좌표는 허브가 주지 않아 주소로 동을 붙였다.</li>
+    <li>유동 수요는 업종 손님이 아니다. 그 동의 방문인구다. 카페와 네일샵이 같은 동의 같은 유동 값을 받는다.</li>
+    <li>D9는 제주 전체 월 단위라, 있더라도 행정동 착시를 직접 나누지는 못한다. 이번 제출 결과에는 없다.</li>
+  </ol>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>10</b></div>
+</section>
+
+<!-- ===================== 11 BUILD ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>05 · 개발과 재현</span><span class="doc">구현 범위, 실행, 검증</span></div>
+  <h2>시연에서 재현되는 것만 구현으로 적는다.</h2>
+
+  <div class="two">
+    <div class="box">
+      <h3>이번 빌드에 있다</h3>
+      <ul>
+        <li>의도 파악, 카탈로그 해석, 신호 7개, 점수 보류, 부분 진단</li>
+        <li>빨강 2개일 때 대안, 지역 미정이면 추천</li>
+        <li>후속 질문, SSE 진행, 근거·한계</li>
+        <li>3D 지도 5레이어와 월 슬라이더</li>
+        <li>Gemini function calling과 실패 시 규칙 루프</li>
+        <li>생활 지명 해석은 Gemini가 있을 때</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>계획으로 남겨 둔 것</h3>
+      <ul>
+        <li>업종 추천 (<span class="mono">find_gap_category</span>)</li>
+        <li>D3 트렌드를 리포트에 연결</li>
+        <li>D6 생멸을 진단 루프에 포함</li>
+        <li>D9 입도객 캐시를 제출본에 포함</li>
+        <li>음식점 밖 인허가로 생존 신호 확대</li>
+        <li>리포트 PDF 저장</li>
+        <li>빨강 개수와 이후 실제 생존율의 사후 대조</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>기술과 실행</h3>
+  <table>
+    <thead><tr><th style="width:28mm">영역</th><th>선택</th></tr></thead>
+    <tbody>
+      <tr><td>백엔드</td><td>Python 3.11+, FastAPI, uvicorn, SSE</td></tr>
+      <tr><td>Agent</td><td><span class="mono">packages/agent</span> 루프·도구·프롬프트·Gemini 어댑터. 스키마는 <span class="mono">packages/schema/report.schema.json</span></td></tr>
+      <tr><td>데이터</td><td><span class="mono">packages/pipeline</span>, pandas, pyarrow. DuckDB는 쓰지 않는다.</td></tr>
+      <tr><td>화면</td><td>React 18, TypeScript, Vite 빌드 결과, deck.gl 9 (MapLibre·타일 없음), Recharts</td></tr>
+      <tr><td>구조</td><td><span class="mono">apps/api</span>, <span class="mono">apps/web</span>, <span class="mono">packages/agent</span>, <span class="mono">packages/pipeline</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="call" style="font-size:8pt">
+    <b>평가 PC.</b> GPU 불필요. 로컬 모델을 올리지 않는다. 메모리는 parquet과 pandas 수준이다.<br>
+    <b>macOS · Linux</b>
+    <span class="mono cmd">cp .env.example .env &amp;&amp; make setup &amp;&amp; make run</span>
+    브라우저에서 http://localhost:8000<br>
+    <b>Windows</b>
+    <span class="mono cmd">py -3.11 -m venv .venv</span>
+    <span class="mono cmd">.venv\Scripts\python -m pip install -e ".[dev]"</span>
+    <span class="mono cmd">.venv\Scripts\uvicorn apps.api.main:app --host 127.0.0.1 --port 8000</span>
+    프론트 빌드와 parquet이 저장소에 있어 Node와 원본 CSV는 필요 없다. 키를 비우면 규칙 루프다.
+  </div>
+
+  <h3>검증</h3>
+  <p>pytest 45건. 같은 진단의 수치 재현, 리포트 숫자가 도구 출력에 있는지, 지역 추천, 매핑 밖 업종의 되묻기, PC방·미용실의 점수 보류, 랜드마크가 43개 밖 동을 반환하면 거부하는지, API 연기를 본다. 규칙 루프는 랜덤 추출이 없어 같은 입력의 점수가 같다.</p>
+  <p>사후 검증(2018–2019 빨강 개수와 그 코호트의 실제 3년 생존)은 아직 표로 만들지 않았다. 구현된 검증은 계산 재현과 보류 규칙이다.</p>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>11</b></div>
+</section>
+
+<!-- ===================== 12 EFFECT + LIMIT ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>06 · 기대 효과</span><span class="doc">누가 무엇을 덜 틀리나</span></div>
+  <h2>성수기 숫자만으로<br>자리를 고르지 않게 한다.</h2>
+  <p class="lead">애월읍 카페를 수요 6위와 순증 +17만으로 읽으면 들어갈 이유가 된다. 같은 화면에서 관광 74.5%와 생존 −4.8%p를 같이 보면, 질문이 “여기가 잘되나”에서 “비수기와 도민 매출을 견딜 자리인가”로 바뀐다. 이도2동 81점은 그 질문에 대한 비교 자리지, 성공 예보가 아니다.</p>
+
+  <table>
+    <thead><tr><th style="width:36mm">대상</th><th>바뀌는 일</th></tr></thead>
+    <tbody>
+      <tr><td>예비 창업자</td><td>파일 여러 개를 받기 전에, 관광 의존·계절·생존·개폐업이 한 번에 보인다. 데이터가 없는 업종은 높은 점수 대신 빈 점수를 본다.</td></tr>
+      <tr><td>상담 기관</td><td>상담 한 건의 근거가 신호별 출처와 시점으로 남는다. 안정형·도민 고객처럼 조건을 바꾸면 같은 도구가 가중치만 바꿔 다시 계산한다.</td></tr>
+      <tr><td>제주데이터허브 데이터</td><td>746·748·793·780이 비전문가 화면까지 이어진 사례가 된다. 분석가는 같은 parquet으로 다른 가중치를 시험할 수 있다.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>효과의 경계</h3>
+  <div class="split even">
+    <div>
+      <p>점수가 높은 동은 “데이터상 위험 백분위가 낮다”는 뜻이다. 임대료를 빼지 않았고, 2021년 5월 이후 카드 매출을 알지 못하며, 음식점이 아닌 업종의 생존은 계산하지 못한다. 상담에서 이 문장을 점수 옆에 두는 것이 도구의 사용 조건이다.</p>
+    </div>
+    <div>
+      <p>규칙 루프가 기본인 이유는 재현이다. 모델이 바뀌거나 키가 없어도 애월읍 카페의 74.5%, 66.3%, 55점은 같다. 문장만 모델에 맡겨 두고, 순위를 흔들 수 있는 계산은 코드에 남겨 두었다.</p>
+    </div>
+  </div>
+
+  <h3>한 장으로 다시</h3>
+  <div class="cmp">
+    <div class="hd">질문</div><div class="hd">섬자리가 하는 일</div><div class="hd">하지 않는 일</div>
+    <div class="lab">애월읍 카페</div>
+    <div>7개 신호와 55점, 대안 3곳</div>
+    <div>창업 승인</div>
+    <div class="lab">베이커리, 지역 없음</div>
+    <div>연동 78 · 이도2동 76 · 건입동 73</div>
+    <div>빈 업종 창안</div>
+    <div class="lab">PC방·네일샵</div>
+    <div>가능한 신호와 점수 보류</div>
+    <div>없는 카드 매출 추정</div>
+    <div class="lab">제주시청 근처</div>
+    <div>Gemini면 43개 동 중 하나</div>
+    <div>키 없이 동을 추측</div>
+  </div>
+
+  <h3>시연에서 누를 순서</h3>
+  <p>키 없이 실행한 뒤, 첫 화면에 「애월읍에서 카페 창업하려는데 어떨까요?」를 넣는다. 55점, 관광 74.5%, 생존 66.3%, 대안 세 곳이 나오면 표지와 같은 화면이다. 이어서 이도2동 카페를 열어 관광 30%와 생존 +5.7%p를 비교하고, 애월읍 네일샵으로 점수가 비는 것을 확인한다. 마지막에 「그럼 한림읍은?」을 넣어 업종이 유지되는지 본다. 성향을 안정으로 바꾸면 같은 애월읍 카페가 50점이 된다.</p>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>12</b></div>
+</section>
+
+<!-- ===================== 13 APPENDIX ===================== -->
+<section class="sheet inner">
+  <div class="running"><span>부록</span><span class="doc">AI 고지와 제출물</span></div>
+  <h2>AI 활용 고지.</h2>
+
+  <table>
+    <thead><tr><th style="width:40mm">항목</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td>서비스 안 모델</td><td>기본은 모델 없음. 선택 시 Google Gemini function calling(환경변수 <span class="mono">LLM_PROVIDER=gemini</span>, <span class="mono">LLM_MODEL</span>). 하는 일은 의도·도구 선택·요약 문장이다. 수치 계산은 하지 않는다. 검증 실패 시 규칙 루프가 리포트를 대체한다.</td></tr>
+      <tr><td>개발 때 쓴 도구</td><td>Anthropic Claude로 기획 문장과 파이프라인·루프 초안을 잡았다. 신호 정의, 매핑, 보류 규칙, 이 기획서의 수치는 참가자가 코드와 pytest, 그리고 규칙 루프 재실행으로 확인했다.</td></tr>
+      <tr><td>외부 API</td><td>Gemini API(선택). 제주데이터허브 API는 D9 수집용이며 제출 실행 경로에서는 호출하지 않는다. 키는 <span class="mono">.env</span>에만 두고 저장소에 넣지 않는다.</td></tr>
+      <tr><td>오픈소스</td><td>FastAPI, uvicorn, sse-starlette, pandas, pyarrow, python-dotenv, httpx, google-genai, React, Vite, deck.gl, Recharts. 라이선스 목록은 README와 각 패키지 메타데이터를 따른다.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>제출물 위치</h3>
+  <table>
+    <thead><tr><th style="width:40mm">필수에 해당하는 것</th><th>경로</th></tr></thead>
+    <tbody>
+      <tr><td>실행 소스</td><td><span class="mono">apps/api</span>, <span class="mono">apps/web</span>, <span class="mono">packages/agent</span>, <span class="mono">packages/pipeline</span>, <span class="mono">packages/schema</span></td></tr>
+      <tr><td>실행 환경·매뉴얼</td><td><span class="mono">README.md</span>, <span class="mono">.env.example</span>, <span class="mono">Makefile</span>, <span class="mono">pyproject.toml</span></td></tr>
+      <tr><td>데이터 명세</td><td><span class="mono">docs/data_spec.md</span>, <span class="mono">data/processed/registry.json</span>, <span class="mono">packages/pipeline/category_map.csv</span></td></tr>
+      <tr><td>결과 설명</td><td><span class="mono">docs/results.md</span>. 본 기획서의 표지 수치는 기본 가중치(균형) 재실행 값이다. results.md의 50점·82점은 안정형이다.</td></tr>
+      <tr><td>전처리 결과</td><td><span class="mono">data/processed/*.parquet</span>. 원본 CSV는 용량과 이용 조건상 저장소 밖에 둔다.</td></tr>
+      <tr><td>화면 빌드</td><td><span class="mono">apps/api/static</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>숫자 대조</h3>
+  <p>기획서에 적은 진단 수치는 2026-11-19에 <span class="mono">score_risk</span>와 <span class="mono">compare_places</span>를 기본 가중치로 다시 호출해 맞췄다. 애월읍 카페 55점, 관광 의존 74.5%, 계절 1.96배, 수요 6위/41, 유동 3위/43, 경쟁 333.20, 생존 66.3%(n=261, −4.8%p), 순증 +17, 대안 81·79·73. 시연에서 성향을 안정으로 바꾸면 50점과 82·80·75가 된다. 두 숫자는 충돌이 아니라 가중치 차이다.</p>
+
+  <p class="small" style="margin-top:4mm">섬자리. 섬에서 자리 잡기. 참가자 설규한. 제출 2026-11-20.</p>
+
+  <div class="foot"><span>섬자리 · 설규한</span><b>13</b></div>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,70 @@
+# 프록시(caddy)는 그대로 두고 blue/green 앱만 교체한다.
+# 메모리 값은 deploy/remote-up.sh 가 호스트 RAM 기준으로 deploy/mem.env 에 쓴다.
+
+name: seomjari
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: seomjari-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/upstream.caddy:/etc/caddy/upstream.caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: ${CADDY_MEM_LIMIT:-64m}
+    memswap_limit: ${CADDY_MEM_LIMIT:-64m}
+    pids_limit: 64
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  blue: &app
+    image: seomjari:app
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: seomjari-blue
+    restart: unless-stopped
+    expose:
+      - "8000"
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data/processed
+      SESSION_DB: /var/sessions/sessions.sqlite3
+      LOG_JSON: "true"
+    volumes:
+      - sessions:/var/sessions
+    mem_limit: ${APP_MEM_LIMIT:-384m}
+    memswap_limit: ${APP_MEM_LIMIT:-384m}
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  green:
+    <<: *app
+    container_name: seomjari-green
+
+volumes:
+  sessions:
+  caddy_data:
+  caddy_config:

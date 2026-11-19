@@ -11,6 +11,9 @@ apps/web/dist/
 
 # Env
 .env
+deploy/site.env
+deploy/mem.env
+deploy/active
 
 # Data (원본 CSV는 용량이 커서 제외, README의 다운로드 안내 참고)
 data/raw/*

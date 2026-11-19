@@ -2,7 +2,7 @@ PY ?= python3
 VENV = .venv
 BIN = $(VENV)/bin
 
-.PHONY: setup setup-web data dev api web build run test clean
+.PHONY: setup setup-web data dev api web build run test clean deploy
 
 ## Python 환경 (평가 환경은 이것만 필요)
 setup:
@@ -38,6 +38,10 @@ run:
 
 test:
 	$(BIN)/pytest -q
+
+## Ubuntu 인스턴스에 scp 후 blue/green 무중단 교체
+deploy:
+	bash deploy/deploy.sh
 
 clean:
 	rm -rf $(VENV) apps/web/node_modules
