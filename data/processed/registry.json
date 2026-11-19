@@ -1,0 +1,62 @@
+[
+  {
+    "id": "D1",
+    "name": "업종별 카드 매출 (제주데이터허브 주제1)",
+    "source": "jejudatahub.net/data/746",
+    "period_start": "2018-01",
+    "period_end": "2021-05",
+    "as_of": "2021-05",
+    "refresh": "none",
+    "api": false
+  },
+  {
+    "id": "D2",
+    "name": "유동인구+카드 매출 (제주데이터허브 주제3)",
+    "source": "jejudatahub.net/data/748",
+    "period_start": "2017-01",
+    "period_end": "2021-05",
+    "as_of": "2021-05",
+    "refresh": "none",
+    "api": false
+  },
+  {
+    "id": "D3",
+    "name": "업종별 성별 카드 이용",
+    "source": "jejudatahub.net/data/1048",
+    "period_start": "2018-01",
+    "period_end": "2025-06",
+    "as_of": "2025-06",
+    "refresh": "quarterly",
+    "api": false
+  },
+  {
+    "id": "D4",
+    "name": "제주 상가(상권) 정보",
+    "source": "jejudatahub.net/data/793",
+    "period_start": "2025-09",
+    "period_end": "2025-09",
+    "as_of": "2025-09",
+    "refresh": "monthly",
+    "api": false
+  },
+  {
+    "id": "D5",
+    "name": "제주 음식점 목록(통합)",
+    "source": "jejudatahub.net/data/780 (LOCALDATA)",
+    "period_start": "1960-01",
+    "period_end": "2025-09",
+    "as_of": "2025-09-02",
+    "refresh": "daily",
+    "api": false
+  },
+  {
+    "id": "D6",
+    "name": "읍면동 사업체 생멸",
+    "source": "jejudatahub.net/data/830 (KOSIS)",
+    "period_start": "2018",
+    "period_end": "2023",
+    "as_of": "2023",
+    "refresh": "yearly",
+    "api": false
+  }
+]
